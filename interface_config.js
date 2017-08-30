@@ -104,5 +104,10 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
      * If indicated some of the error dialogs may point to the support URL for
      * help.
      */
-    // SUPPORT_URL: ""
+    // SUPPORT_URL: "",
+
+    /**
+     * The name of the application connected to the "Add people" search service.
+     */
+    // APP_PEOPLE_APP_NAME: ""
 };

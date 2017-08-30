@@ -4,6 +4,7 @@ import _ from 'lodash';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
+import { InviteButton } from '../../invite';
 import { Toolbox } from '../../toolbox';
 
 import { setFilmstripHovered } from '../actions';
@@ -108,6 +109,10 @@ class Filmstrip extends Component {
                         id = 'filmstripLocalVideo'
                         onMouseOut = { this._onMouseOut }
                         onMouseOver = { this._onMouseOver } />
+                    <div
+                        className = 'filmstrip__videos'>
+                        <InviteButton />
+                    </div>
                     <div
                         className = 'filmstrip__videos'
                         id = 'filmstripRemoteVideos'>
