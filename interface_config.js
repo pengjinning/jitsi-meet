@@ -109,5 +109,5 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
     /**
      * The name of the application connected to the "Add people" search service.
      */
-    // APP_PEOPLE_APP_NAME: ""
+    // ADD_PEOPLE_APP_NAME: ""
 };
