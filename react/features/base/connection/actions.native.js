@@ -81,14 +81,18 @@ export function connect(id: ?string, password: ?string) {
          * Rejects external promise when connection fails.
          *
          * @param {JitsiConnectionErrors} err - Connection error.
-         * @param {string} msg - Error message supplied by lib-jitsi-meet.
+         * @param {string} [msg] - Error message supplied by lib-jitsi-meet.
+         * @param {Object} [credentials] - The invalid credentials that were
+         * used to authenticate and the authentication has failed.
+         * @param {string} [credentials.jid] - The xmpp user ID.
+         * @param {string} [credentials.password] - The password.
          * @returns {void}
          * @private
          */
-        function _onConnectionFailed(err, msg) {
+        function _onConnectionFailed(err, msg, credentials) {
             unsubscribe();
             console.error('CONNECTION FAILED:', err, msg);
-            dispatch(connectionFailed(connection, err, msg));
+            dispatch(connectionFailed(connection, err, msg, credentials));
         }
 
         /**
@@ -163,31 +167,38 @@ export function connectionEstablished(connection: Object) {
     };
 }
 
+/* eslint-disable max-params */
 /**
  * Create an action for when the signaling connection could not be created.
  *
  * @param {JitsiConnection} connection - The JitsiConnection which failed.
  * @param {string} error - Error.
- * @param {string} message - Error message.
+ * @param {string} [message] - Error message.
+ * @param {Object} [credentials] - The invalid credentials that failed
+ * the authentication.
  * @public
  * @returns {{
  *     type: CONNECTION_FAILED,
  *     connection: JitsiConnection,
  *     error: string,
- *     message: string
+ *     message: string,
+ *     credentials: Object
  * }}
  */
 export function connectionFailed(
         connection: Object,
         error: string,
-        message: ?string) {
+        message: ?string,
+        credentials: ?Object) {
     return {
         type: CONNECTION_FAILED,
         connection,
         error,
-        message
+        message,
+        credentials
     };
 }
+/* eslint-enable max-params */
 
 /**
  * Constructs options to be passed to the constructor of {@code JitsiConnection}
