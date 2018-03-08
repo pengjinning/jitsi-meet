@@ -1,9 +1,9 @@
-/* @flow */
+// @flow
 
 import _ from 'lodash';
 import type { Dispatch } from 'redux';
 
-import { conferenceWillLeave } from '../conference';
+import { conferenceLeft, conferenceWillLeave } from '../conference';
 import JitsiMeetJS, { JitsiConnectionEvents } from '../lib-jitsi-meet';
 import { parseStandardURIString } from '../util';
 
@@ -26,7 +26,7 @@ export function connect(id: ?string, password: ?string) {
     return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
         const options = _constructOptions(state);
-        const { issuer, jwt } = state['features/jwt'];
+        const { issuer, jwt } = state['features/base/jwt'];
         const connection
             = new JitsiMeetJS.JitsiConnection(
                 options.appId,
@@ -45,7 +45,7 @@ export function connect(id: ?string, password: ?string) {
             JitsiConnectionEvents.CONNECTION_FAILED,
             _onConnectionFailed);
 
-        connection.connect({
+        return connection.connect({
             id,
             password
         });
@@ -55,8 +55,8 @@ export function connect(id: ?string, password: ?string) {
          * disconnected.
          *
          * @param {string} message - Disconnect reason.
-         * @returns {void}
          * @private
+         * @returns {void}
          */
         function _onConnectionDisconnected(message: string) {
             connection.removeEventListener(
@@ -69,8 +69,8 @@ export function connect(id: ?string, password: ?string) {
         /**
          * Resolves external promise when connection is established.
          *
-         * @returns {void}
          * @private
+         * @returns {void}
          */
         function _onConnectionEstablished() {
             unsubscribe();
@@ -81,14 +81,18 @@ export function connect(id: ?string, password: ?string) {
          * Rejects external promise when connection fails.
          *
          * @param {JitsiConnectionErrors} err - Connection error.
-         * @param {string} msg - Error message supplied by lib-jitsi-meet.
-         * @returns {void}
+         * @param {string} [msg] - Error message supplied by lib-jitsi-meet.
+         * @param {Object} [credentials] - The invalid credentials that were
+         * used to authenticate and the authentication failed.
+         * @param {string} [credentials.jid] - The XMPP user's ID.
+         * @param {string} [credentials.password] - The XMPP user's password.
          * @private
+         * @returns {void}
          */
-        function _onConnectionFailed(err, msg) {
+        function _onConnectionFailed(err, msg, credentials) {
             unsubscribe();
             console.error('CONNECTION FAILED:', err, msg);
-            dispatch(connectionFailed(connection, err, msg));
+            dispatch(connectionFailed(connection, err, msg, credentials));
         }
 
         /**
@@ -163,31 +167,49 @@ export function connectionEstablished(connection: Object) {
     };
 }
 
+/* eslint-disable max-params */
+
 /**
  * Create an action for when the signaling connection could not be created.
  *
  * @param {JitsiConnection} connection - The JitsiConnection which failed.
  * @param {string} error - Error.
- * @param {string} message - Error message.
+ * @param {string} [message] - Error message.
+ * @param {Object} [credentials] - The invalid credentials that failed
+ * the authentication.
+ * @param {Object} [details] - The details about the connection failed event.
  * @public
  * @returns {{
  *     type: CONNECTION_FAILED,
  *     connection: JitsiConnection,
- *     error: string,
- *     message: string
+ *     error: Object
  * }}
  */
 export function connectionFailed(
         connection: Object,
         error: string,
-        message: ?string) {
+        message: ?string,
+        credentials: ?Object,
+        details: ?Object) {
     return {
         type: CONNECTION_FAILED,
         connection,
-        error,
-        message
+
+        // Make the error resemble an Error instance (to the extent that
+        // jitsi-meet needs it).
+        error: {
+            credentials:
+                credentials && Object.keys(credentials).length
+                    ? credentials
+                    : undefined,
+            message,
+            name: error,
+            details
+        }
     };
 }
+
+/* eslint-enable max-params */
 
 /**
  * Constructs options to be passed to the constructor of {@code JitsiConnection}
@@ -240,11 +262,11 @@ function _constructOptions(state) {
  * @returns {Function}
  */
 export function disconnect() {
-    return (dispatch: Dispatch<*>, getState: Function) => {
+    return (dispatch: Dispatch<*>, getState: Function): Promise<void> => {
         const state = getState();
         const { conference, joining } = state['features/base/conference'];
 
-        // The conference we are joining or have already joined.
+        // The conference we have already joined or are joining.
         const conference_ = conference || joining;
 
         // Promise which completes when the conference has been left and the
@@ -259,7 +281,16 @@ export function disconnect() {
             // intention to leave the conference.
             dispatch(conferenceWillLeave(conference_));
 
-            promise = conference_.leave();
+            promise
+                = conference_.leave()
+                    .catch(() => {
+                        // The library lib-jitsi-meet failed to make the
+                        // JitsiConference leave. Which may be because
+                        // JitsiConference thinks it has already left.
+                        // Regardless of the failure reason, continue in
+                        // jitsi-meet as if the leave has succeeded.
+                        dispatch(conferenceLeft(conference_));
+                    });
         } else {
             promise = Promise.resolve();
         }
@@ -267,7 +298,7 @@ export function disconnect() {
         // Disconnect the connection.
         const { connecting, connection } = state['features/base/connection'];
 
-        // The connection we are connecting or have already connected.
+        // The connection we have already connected or are connecting.
         const connection_ = connection || connecting;
 
         if (connection_) {

@@ -1,20 +1,43 @@
 import InlineMessage from '@atlaskit/inline-message';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import {
+    createToolbarEvent,
+    sendAnalytics
+} from '../../analytics';
+import {
+    VIDEO_QUALITY_LEVELS,
     setAudioOnly,
-    setReceiveVideoQuality,
-    VIDEO_QUALITY_LEVELS
+    setReceiveVideoQuality
 } from '../../base/conference';
-
 import { translate } from '../../base/i18n';
+import JitsiMeetJS from '../../base/lib-jitsi-meet';
+
+const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 const {
     HIGH,
     STANDARD,
     LOW
 } = VIDEO_QUALITY_LEVELS;
+
+/**
+ * Creates an analytics event for a press of one of the buttons in the video
+ * quality dialog.
+ *
+ * @param {string} quality - The quality which was selected.
+ * @returns {Object} The event in a format suitable for sending via
+ *      sendAnalytics.
+ */
+const createEvent = function(quality) {
+    return createToolbarEvent(
+        'video.quality',
+        {
+            quality
+        });
+};
 
 /**
  * Implements a React {@link Component} which displays a dialog with a slider
@@ -32,28 +55,34 @@ class VideoQualityDialog extends Component {
         /**
          * Whether or not the conference is in audio only mode.
          */
-        _audioOnly: React.PropTypes.bool,
+        _audioOnly: PropTypes.bool,
 
         /**
          * Whether or not the conference is in peer to peer mode.
          */
-        _p2p: React.PropTypes.bool,
+        _p2p: PropTypes.bool,
 
         /**
          * The currently configured maximum quality resolution to be received
          * from remote participants.
          */
-        _receiveVideoQuality: React.PropTypes.number,
+        _receiveVideoQuality: PropTypes.number,
+
+        /**
+         * Whether or not displaying video is supported in the current
+         * environment. If false, the slider will be disabled.
+         */
+        _videoSupported: PropTypes.bool,
 
         /**
          * Invoked to request toggling of audio only mode.
          */
-        dispatch: React.PropTypes.func,
+        dispatch: PropTypes.func,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -113,17 +142,26 @@ class VideoQualityDialog extends Component {
      * @returns {ReactElement}
      */
     render() {
-        const { _audioOnly, _p2p, t } = this.props;
+        const { _audioOnly, _p2p, _videoSupported, t } = this.props;
         const activeSliderOption = this._mapCurrentQualityToSliderValue();
-        const showP2PWarning = _p2p && !_audioOnly;
+
+        let classNames = 'video-quality-dialog';
+        let warning = null;
+
+        if (!_videoSupported) {
+            classNames += ' video-not-supported';
+            warning = this._renderAudioOnlyLockedMessage();
+        } else if (_p2p && !_audioOnly) {
+            warning = this._renderP2PMessage();
+        }
 
         return (
-            <div className = 'video-quality-dialog'>
+            <div className = { classNames }>
                 <h3 className = 'video-quality-dialog-title'>
                     { t('videoStatus.callQuality') }
                 </h3>
-                <div className = { showP2PWarning ? '' : 'hide-warning' }>
-                    { this._renderP2PMessage() }
+                <div className = { warning ? '' : 'hide-warning' }>
+                    { warning }
                 </div>
                 <div className = 'video-quality-dialog-contents'>
                     <div className = 'video-quality-dialog-slider-container'>
@@ -133,6 +171,7 @@ class VideoQualityDialog extends Component {
                            */ }
                         <input
                             className = 'video-quality-dialog-slider'
+                            disabled = { !_videoSupported }
                             max = { this._sliderOptions.length - 1 }
                             min = '0'
                             onChange = { this._onSliderChange }
@@ -148,6 +187,24 @@ class VideoQualityDialog extends Component {
                     </div>
                 </div>
             </div>
+        );
+    }
+
+    /**
+     * Creates a React Element for notifying that the browser is in audio only
+     * and cannot be changed.
+     *
+     * @private
+     * @returns {ReactElement}
+     */
+    _renderAudioOnlyLockedMessage() {
+        const { t } = this.props;
+
+        return (
+            <InlineMessage
+                title = { t('videoStatus.onlyAudioAvailable') }>
+                { t('videoStatus.onlyAudioSupported') }
+            </InlineMessage>
         );
     }
 
@@ -211,10 +268,13 @@ class VideoQualityDialog extends Component {
      * @returns {void}
      */
     _enableAudioOnly() {
+        sendAnalytics(createEvent('audio.only'));
+        logger.log('Video quality: audio only enabled');
         this.props.dispatch(setAudioOnly(true));
     }
 
     /**
+     * Handles the action of the high definition video being selected.
      * Dispatches an action to receive high quality video from remote
      * participants.
      *
@@ -222,6 +282,8 @@ class VideoQualityDialog extends Component {
      * @returns {void}
      */
     _enableHighDefinition() {
+        sendAnalytics(createEvent('high'));
+        logger.log('Video quality: high enabled');
         this.props.dispatch(setReceiveVideoQuality(HIGH));
     }
 
@@ -233,6 +295,8 @@ class VideoQualityDialog extends Component {
      * @returns {void}
      */
     _enableLowDefinition() {
+        sendAnalytics(createEvent('low'));
+        logger.log('Video quality: low enabled');
         this.props.dispatch(setReceiveVideoQuality(LOW));
     }
 
@@ -244,6 +308,8 @@ class VideoQualityDialog extends Component {
      * @returns {void}
      */
     _enableStandardDefinition() {
+        sendAnalytics(createEvent('standard'));
+        logger.log('Video quality: standard enabled');
         this.props.dispatch(setReceiveVideoQuality(STANDARD));
     }
 
@@ -319,9 +385,9 @@ function _mapStateToProps(state) {
     return {
         _audioOnly: audioOnly,
         _p2p: p2p,
-        _receiveVideoQuality: receiveVideoQuality
+        _receiveVideoQuality: receiveVideoQuality,
+        _videoSupported: JitsiMeetJS.mediaDevices.supportsVideo()
     };
 }
 
 export default translate(connect(_mapStateToProps)(VideoQualityDialog));
-

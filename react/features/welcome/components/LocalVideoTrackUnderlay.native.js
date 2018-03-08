@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { connect } from 'react-redux';
 
 import { VideoTrack } from '../../base/media';
+import { TintedView } from '../../base/react';
 import { getLocalVideoTrack } from '../../base/tracks';
 
 import styles from './styles';
@@ -14,11 +15,11 @@ import styles from './styles';
  * Implements a React {@code Component} which underlays the local video track,
  * if any, underneath its children.
  */
-class LocalVideoTrackUnderlay extends Component {
+class LocalVideoTrackUnderlay extends Component<*, *> {
     state: {
 
         /**
-         * The style of <tt>LocalVideoTrackUnderlay</tt> which is a combination
+         * The style of {@code LocalVideoTrackUnderlay} which is a combination
          * of its default style and the consumer-specified style.
          */
         style: Object
@@ -72,6 +73,7 @@ class LocalVideoTrackUnderlay extends Component {
             };
 
             if (assignState) {
+                // eslint-disable-next-line react/no-direct-mutation-state
                 this.state = nextState;
             } else {
                 this.setState(nextState);
@@ -90,9 +92,9 @@ class LocalVideoTrackUnderlay extends Component {
         return (
             <View style = { this.state.style }>
                 <VideoTrack videoTrack = { this.props._localVideoTrack } />
-                <View style = { styles.localVideoTrackOverlay }>
+                <TintedView>
                     { this.props.children }
-                </View>
+                </TintedView>
             </View>
         );
     }

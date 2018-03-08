@@ -1,4 +1,5 @@
 import {
+    BoxModel,
     ColorPalette,
     createStyleSheet,
     fixAndroidViewClipping
@@ -18,25 +19,21 @@ export default createStyleSheet({
     }),
 
     /**
-     * The style of the View rendered while the conference is being connected
-     * (i.e. the XMPP connection is being established and the MUC is being
-     * joined).
+     * The style of the {@link View} which expands over the whole
+     * {@link Conference} area and splits it between the {@link Filmstrip} and
+     * the {@link Toolbox}.
      */
-    connectingIndicator: {
-        alignItems: 'center',
-        bottom: 0,
-        justifyContent: 'center',
-        left: 0,
+    toolboxAndFilmstripContainer: {
+        bottom: BoxModel.margin,
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        left: BoxModel.margin,
         position: 'absolute',
-        right: 0,
-        top: 0,
+        right: BoxModel.margin,
 
-        // Because the background of LargeVideo varies wildly (e.g. the
-        // participant's video or avatar), the LoadingIndicator may be difficult
-        // to see. Reduce the variance of the background of LargeVideo and,
-        // thus, increase the visibility of LoadingIndicator by introducing
-        // contrast and translucency.
-        backgroundColor: ColorPalette.appBackground,
-        opacity: 0.5
+        // Both on Android and iOS there is the status bar which may be visible.
+        // On iPhone X there is the notch. In the two cases BoxModel.margin is
+        // not enough.
+        top: BoxModel.margin * 3
     }
 });

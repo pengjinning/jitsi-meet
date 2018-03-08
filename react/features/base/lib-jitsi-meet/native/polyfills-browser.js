@@ -4,7 +4,13 @@ import 'url-polyfill'; // Polyfill for URL constructor
 
 import { Platform } from '../../react';
 
-import Storage from './Storage';
+// XXX The library lib-jitsi-meet utilizes window.localStorage at the time of
+// this writing and, consequently, the browser-related polyfills implemented
+// here by the feature base/lib-jitsi-meet for the purposes of the library
+// lib-jitsi-meet are incomplete without the Web Storage API! Should the library
+// lib-jitsi-meet (and its dependencies) stop utilizing window.localStorage,
+// the following import may be removed:
+import '../../storage';
 
 /**
  * Gets the first common prototype of two specified Objects (treating the
@@ -143,24 +149,42 @@ function _visitNode(node, callback) {
             document.cookie = '';
         }
 
-        // Document.querySelector
+        // document.implementation
         //
         // Required by:
-        // - strophejs-plugins/caps/strophe.caps.jsonly.js
-        const documentPrototype = Object.getPrototypeOf(document);
+        // - jQuery
+        if (typeof document.implementation === 'undefined') {
+            document.implementation = {};
+        }
 
-        if (documentPrototype) {
-            if (typeof documentPrototype.querySelector === 'undefined') {
-                documentPrototype.querySelector = function(selectors) {
-                    return _querySelector(this.elementNode, selectors);
-                };
-            }
+        // document.implementation.createHTMLDocument
+        //
+        // Required by:
+        // - jQuery
+        if (typeof document.implementation.createHTMLDocument === 'undefined') {
+            document.implementation.createHTMLDocument = function(title = '') {
+                const htmlDocument
+                    = new DOMParser().parseFromString(
+                        `<html>
+                            <head><title>${title}</title></head>
+                            <body></body>
+                        </html>`,
+                        'text/xml');
+
+                Object.defineProperty(htmlDocument, 'body', {
+                    get() {
+                        return htmlDocument.getElementsByTagName('body')[0];
+                    }
+                });
+
+                return htmlDocument;
+            };
         }
 
         // Element.querySelector
         //
         // Required by:
-        // - strophejs-plugins/caps/strophe.caps.jsonly.js
+        // - lib-jitsi-meet/modules/xmpp
         const elementPrototype
             = Object.getPrototypeOf(document.documentElement);
 
@@ -212,6 +236,7 @@ function _visitNode(node, callback) {
         // FIXME There is a weird infinite loop related to console.log and
         // Document and/or Element at the time of this writing. Work around it
         // by patching Node and/or overriding console.log.
+        const documentPrototype = Object.getPrototypeOf(document);
         const nodePrototype
             = _getCommonPrototype(documentPrototype, elementPrototype);
 
@@ -235,6 +260,23 @@ function _visitNode(node, callback) {
 
                     if (typeof consoleLog === 'function') {
                         console[level] = function(...args) {
+                            // XXX If console's disableYellowBox is truthy, then
+                            // react-native will not automatically display the
+                            // yellow box for the warn level. However, it will
+                            // still display the red box for the error level.
+                            // But I disable the yellow box when I don't want to
+                            // have react-native automatically show me the
+                            // console's output just like in the Release build
+                            // configuration. Because I didn't find a way to
+                            // disable the red box, downgrade the error level to
+                            // warn. The red box will still be displayed but not
+                            // for the error level.
+                            if (console.disableYellowBox && level === 'error') {
+                                console.warn(...args);
+
+                                return;
+                            }
+
                             const { length } = args;
 
                             for (let i = 0; i < length; ++i) {
@@ -265,11 +307,6 @@ function _visitNode(node, callback) {
         }
 
         global.document = document;
-    }
-
-    // localStorage
-    if (typeof global.localStorage === 'undefined') {
-        global.localStorage = new Storage('@jitsi-meet/');
     }
 
     // location
@@ -306,7 +343,7 @@ function _visitNode(node, callback) {
         //
         // Required by:
         // - lib-jitsi-meet/modules/RTC/adapter.screenshare.js
-        // - lib-jitsi-meet/modules/RTC/RTCBrowserType.js
+        // - lib-jitsi-meet/modules/browser/BrowserDetection.js
         let userAgent = navigator.userAgent || '';
 
         // react-native/version
@@ -326,15 +363,6 @@ function _visitNode(node, callback) {
         }
 
         navigator.userAgent = userAgent;
-    }
-
-    // sessionStorage
-    //
-    // Required by:
-    // - herment
-    // - Strophe
-    if (typeof global.sessionStorage === 'undefined') {
-        global.sessionStorage = new Storage();
     }
 
     // WebRTC
@@ -376,6 +404,6 @@ function _visitNode(node, callback) {
     global.clearTimeout = BackgroundTimer.clearTimeout.bind(BackgroundTimer);
     global.clearInterval = BackgroundTimer.clearInterval.bind(BackgroundTimer);
     global.setInterval = BackgroundTimer.setInterval.bind(BackgroundTimer);
-    global.setTimeout = BackgroundTimer.setTimeout.bind(BackgroundTimer);
+    global.setTimeout = (fn, ms = 0) => BackgroundTimer.setTimeout(fn, ms);
 
 })(global || window || this); // eslint-disable-line no-invalid-this

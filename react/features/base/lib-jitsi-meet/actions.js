@@ -1,3 +1,5 @@
+/* @flow */
+
 import type { Dispatch } from 'redux';
 
 import JitsiMeetJS from './_';
@@ -35,7 +37,7 @@ export function disposeLib() {
  * @returns {Function}
  */
 export function initLib() {
-    return (dispatch: Dispatch<*>, getState: Function) => {
+    return (dispatch: Dispatch<*>, getState: Function): Promise<void> => {
         const config = getState()['features/base/config'];
 
         if (!config) {
@@ -51,11 +53,10 @@ export function initLib() {
         dispatch({ type: LIB_WILL_INIT });
 
         return (
-            JitsiMeetJS.init(
-                    Object.assign({
-                        enableAnalyticsLogging: isAnalyticsEnabled({ getState })
-                    },
-                    config))
+            JitsiMeetJS.init({
+                enableAnalyticsLogging: isAnalyticsEnabled(getState),
+                ...config
+            })
                 .then(() => dispatch({ type: LIB_DID_INIT }))
                 .catch(error => {
                     dispatch(libInitError(error));
@@ -96,7 +97,7 @@ export function libInitError(error: Error) {
  * @returns {Function}
  */
 export function setWebRTCReady(webRTCReady: boolean | Promise<*>) {
-    return (dispatch: Dispatch<*>, getState: Function) => {
+    return (dispatch: Function, getState: Function) => {
         if (getState()['features/base/lib-jitsi-meet'].webRTCReady
                 !== webRTCReady) {
             dispatch({

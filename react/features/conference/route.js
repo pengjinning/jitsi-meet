@@ -1,11 +1,14 @@
-/* global APP, config */
+// @flow
 
 import ConferenceUrl from '../../../modules/URL/ConferenceUrl';
 
-import { chooseBOSHAddress, obtainConfig } from '../base/config';
+import { obtainConfig } from '../base/config';
 import { RouteRegistry } from '../base/react';
 
 import { Conference } from './components';
+
+declare var APP: Object;
+declare var config: Object;
 
 const logger = require('jitsi-meet-logger').getLogger(__filename);
 
@@ -29,9 +32,6 @@ RouteRegistry.register({
  * @returns {void}
  */
 function _initConference() {
-    _setTokenData();
-
-    // Initialize the conference URL handler
     APP.ConferenceUrl = new ConferenceUrl(window.location);
 }
 
@@ -45,7 +45,7 @@ function _initConference() {
  * @private
  * @returns {Promise}
  */
-function _obtainConfig(location, room) {
+function _obtainConfig(location: string, room: string) {
     return new Promise((resolve, reject) =>
         obtainConfig(location, room, (success, error) => {
             success ? resolve() : reject(error);
@@ -77,14 +77,15 @@ function _obtainConfigAndInit() {
                     _initConference();
                 })
                 .catch(err => {
+                    logger.log(err);
+
                     // Show obtain config error.
-                    APP.UI.messageHandler.openReportDialog(
-                        null,
-                        'dialog.connectError',
-                        err);
+                    APP.UI.messageHandler.showError({
+                        titleKey: 'connection.CONNFAIL',
+                        descriptionKey: 'dialog.connectError'
+                    });
                 });
         } else {
-            chooseBOSHAddress(config, room);
             _initConference();
         }
     }
@@ -101,23 +102,4 @@ function _obtainConfigHandler() {
 
     APP.connectionTimes['configuration.fetched'] = now;
     logger.log('(TIME) configuration fetched:\t', now);
-}
-
-/**
- * If JWT token data it will be used for local user settings.
- *
- * @private
- * @returns {void}
- */
-function _setTokenData() {
-    const state = APP.store.getState();
-    const { caller } = state['features/jwt'];
-
-    if (caller) {
-        const { avatarUrl, avatar, email, name } = caller;
-
-        APP.settings.setEmail((email || '').trim(), true);
-        APP.settings.setAvatarUrl((avatarUrl || avatar || '').trim());
-        APP.settings.setDisplayName((name || '').trim(), true);
-    }
 }

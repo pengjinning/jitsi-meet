@@ -1,5 +1,6 @@
 /* @flow */
 
+import PropTypes from 'prop-types';
 import React from 'react';
 
 import AbstractToolbarButton from './AbstractToolbarButton';
@@ -68,12 +69,7 @@ export default class StatelessToolbarButton extends AbstractToolbarButton {
         /**
          * Object describing button.
          */
-        button: React.PropTypes.object.isRequired,
-
-        /**
-         * Handler for button's reference.
-         */
-        createRefToButton: React.PropTypes.func
+        button: PropTypes.object.isRequired
     };
 
     /**
@@ -95,18 +91,18 @@ export default class StatelessToolbarButton extends AbstractToolbarButton {
      * @inheritdoc
      * @returns {ReactElement}
      */
-    render(): ReactElement<*> {
+    render(): React$Element<*> {
         const { button } = this.props;
         const attributes = getButtonAttributesByProps(button);
 
         return (
-            <a
-                { ...attributes }
-                onClick = { this._onClick }
-                ref = { this.props.createRefToButton }>
-                { this._renderInnerElementsIfRequired() }
-                { this._renderChildComponentIfRequired() }
-            </a>
+            <div className = 'toolbar-button'>
+                <a
+                    { ...attributes }
+                    onClick = { this._onClick }>
+                    { this.props.children }
+                </a>
+            </div>
         );
     }
 
@@ -130,36 +126,5 @@ export default class StatelessToolbarButton extends AbstractToolbarButton {
         if (enabled && !unclickable && onClick) {
             onClick(event);
         }
-    }
-
-    /**
-     * Render any configured child component for the toolbar button.
-     *
-     * @returns {ReactElement|null}
-     * @private
-     */
-    _renderChildComponentIfRequired(): ReactElement<*> | null {
-        if (this.props.button.childComponent) {
-            const Child = this.props.button.childComponent;
-
-            return <Child />;
-        }
-
-        return null;
-    }
-
-    /**
-     * If toolbar button should contain children elements
-     * renders them.
-     *
-     * @returns {ReactElement|null}
-     * @private
-     */
-    _renderInnerElementsIfRequired(): ReactElement<*> | null {
-        if (this.props.button.html) {
-            return this.props.button.html;
-        }
-
-        return null;
     }
 }

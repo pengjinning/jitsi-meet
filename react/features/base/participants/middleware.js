@@ -1,3 +1,5 @@
+/* @flow */
+
 import UIEvents from '../../../../service/UI/UIEvents';
 
 import {
@@ -10,10 +12,15 @@ import { localParticipantIdChanged } from './actions';
 import {
     KICK_PARTICIPANT,
     MUTE_REMOTE_PARTICIPANT,
-    PARTICIPANT_DISPLAY_NAME_CHANGED
+    PARTICIPANT_DISPLAY_NAME_CHANGED,
+    PARTICIPANT_JOINED,
+    PARTICIPANT_UPDATED
 } from './actionTypes';
 import { LOCAL_PARTICIPANT_DEFAULT_ID } from './constants';
-import { getLocalParticipant } from './functions';
+import {
+    getAvatarURLByParticipantId,
+    getLocalParticipant
+} from './functions';
 
 declare var APP: Object;
 
@@ -25,6 +32,8 @@ declare var APP: Object;
  * @returns {Function}
  */
 MiddlewareRegistry.register(store => next => action => {
+    const { conference } = store.getState()['features/base/conference'];
+
     switch (action.type) {
     case CONFERENCE_JOINED:
         store.dispatch(localParticipantIdChanged(action.conference.myUserId()));
@@ -35,29 +44,11 @@ MiddlewareRegistry.register(store => next => action => {
         break;
 
     case KICK_PARTICIPANT:
-        if (typeof APP !== 'undefined') {
-            APP.UI.emitEvent(UIEvents.USER_KICKED, action.id);
-        }
+        conference.kickParticipant(action.id);
         break;
 
     case MUTE_REMOTE_PARTICIPANT:
-        if (typeof APP !== 'undefined') {
-            APP.UI.messageHandler.openTwoButtonDialog({
-                titleKey: 'dialog.muteParticipantTitle',
-                msgString:
-                    '<div data-i18n="dialog.muteParticipantBody"></div>',
-                leftButtonKey: 'dialog.muteParticipantButton',
-                dontShowAgain: {
-                    id: 'dontShowMuteParticipantDialog',
-                    textKey: 'dialog.doNotShowMessageAgain',
-                    checked: true,
-                    buttonValues: [ true ]
-                },
-                submitFunction: () => {
-                    APP.UI.emitEvent(UIEvents.REMOTE_AUDIO_MUTED, action.id);
-                }
-            });
-        }
+        conference.muteParticipant(action.id);
         break;
 
     // TODO Remove this middleware when the local display name update flow is
@@ -69,6 +60,38 @@ MiddlewareRegistry.register(store => next => action => {
             if (participant && participant.id === action.id) {
                 APP.UI.emitEvent(UIEvents.NICKNAME_CHANGED, action.name);
             }
+        }
+
+        break;
+    }
+
+    case PARTICIPANT_JOINED:
+    case PARTICIPANT_UPDATED: {
+        if (typeof APP !== 'undefined') {
+            const participant = action.participant;
+            const { id, local } = participant;
+
+            const preUpdateAvatarURL
+                = getAvatarURLByParticipantId(store.getState(), id);
+
+            // Allow the redux update to go through and compare the old avatar
+            // to the new avatar and emit out change events if necessary.
+            const result = next(action);
+
+            const postUpdateAvatarURL
+                = getAvatarURLByParticipantId(store.getState(), id);
+
+            if (preUpdateAvatarURL !== postUpdateAvatarURL) {
+                const currentKnownId = local
+                    ? APP.conference.getMyUserId() : id;
+
+                APP.UI.refreshAvatarDisplay(
+                    currentKnownId, postUpdateAvatarURL);
+                APP.API.notifyAvatarChanged(
+                    currentKnownId, postUpdateAvatarURL);
+            }
+
+            return result;
         }
 
         break;

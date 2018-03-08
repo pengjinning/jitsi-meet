@@ -1,3 +1,5 @@
+// @flow
+
 import { appNavigate } from '../app';
 import {
     CONFERENCE_FAILED,
@@ -20,7 +22,6 @@ import {
 } from './actions';
 import {
     CANCEL_LOGIN,
-    CANCEL_WAIT_FOR_OWNER,
     STOP_WAIT_FOR_OWNER,
     WAIT_FOR_OWNER
 } from './actionTypes';
@@ -38,10 +39,10 @@ import { LoginDialog, WaitForOwnerDialog } from './components';
 MiddlewareRegistry.register(store => next => action => {
     switch (action.type) {
     case CANCEL_LOGIN: {
-        const { upgradeRoleInProgress }
-            = store.getState()['features/authentication'];
+        const { dispatch, getState } = store;
+        const { thenableWithCancel } = getState()['features/authentication'];
 
-        upgradeRoleInProgress && upgradeRoleInProgress.cancel();
+        thenableWithCancel && thenableWithCancel.cancel();
 
         // The LoginDialog can be opened on top of "wait for owner". The app
         // should navigate only if LoginDialog was open without the
@@ -51,34 +52,43 @@ MiddlewareRegistry.register(store => next => action => {
                 // Instead of hiding show the new one.
                 const result = next(action);
 
-                store.dispatch(_openWaitForOwnerDialog());
+                dispatch(_openWaitForOwnerDialog());
 
                 return result;
             }
 
             // Go back to the app's entry point.
             _hideLoginDialog(store);
-            store.dispatch(appNavigate(undefined));
+
+            // FIXME Like cancelWaitForOwner, dispatch conferenceLeft to notify
+            // the external-api.
+
+            dispatch(appNavigate(undefined));
         }
         break;
     }
 
-    case CANCEL_WAIT_FOR_OWNER: {
-        const result = next(action);
+    case CONFERENCE_FAILED: {
+        const { error } = action;
 
-        store.dispatch(stopWaitForOwner());
-        store.dispatch(appNavigate(undefined));
+        // XXX The feature authentication affords recovery from
+        // CONFERENCE_FAILED caused by
+        // JitsiConferenceErrors.AUTHENTICATION_REQUIRED.
+        let recoverable;
 
-        return result;
-    }
-
-    case CONFERENCE_FAILED:
-        if (action.error === JitsiConferenceErrors.AUTHENTICATION_REQUIRED) {
+        if (error.name === JitsiConferenceErrors.AUTHENTICATION_REQUIRED) {
+            if (typeof error.recoverable === 'undefined') {
+                error.recoverable = true;
+            }
+            recoverable = error.recoverable;
+        }
+        if (recoverable) {
             store.dispatch(waitForOwner());
         } else {
             store.dispatch(stopWaitForOwner());
         }
         break;
+    }
 
     case CONFERENCE_JOINED:
         if (_isWaitingForOwner(store)) {
@@ -95,10 +105,14 @@ MiddlewareRegistry.register(store => next => action => {
         _hideLoginDialog(store);
         break;
 
-    case CONNECTION_FAILED:
-        action.error === JitsiConnectionErrors.PASSWORD_REQUIRED
+    case CONNECTION_FAILED: {
+        const { error } = action;
+
+        error
+            && error.name === JitsiConnectionErrors.PASSWORD_REQUIRED
             && store.dispatch(_openLoginDialog());
         break;
+    }
 
     case STOP_WAIT_FOR_OWNER:
         _clearExistingWaitForOwnerTimeout(store);
@@ -113,7 +127,7 @@ MiddlewareRegistry.register(store => next => action => {
         action.waitForOwnerTimeoutID = setTimeout(handler, timeoutMs);
 
         // The WAIT_FOR_OWNER action is cyclic and we don't want to hide the
-        // login dialog every few seconds...
+        // login dialog every few seconds.
         isDialogOpen(store, LoginDialog)
             || store.dispatch(_openWaitForOwnerDialog());
         break;
@@ -130,7 +144,8 @@ MiddlewareRegistry.register(store => next => action => {
  * @param {Object} store - The redux store.
  * @returns {void}
  */
-function _clearExistingWaitForOwnerTimeout({ getState }) {
+function _clearExistingWaitForOwnerTimeout(
+        { getState }: { getState: Function }) {
     const { waitForOwnerTimeoutID } = getState()['features/authentication'];
 
     waitForOwnerTimeoutID && clearTimeout(waitForOwnerTimeoutID);
@@ -142,7 +157,7 @@ function _clearExistingWaitForOwnerTimeout({ getState }) {
  * @param {Object} store - The redux store.
  * @returns {void}
  */
-function _hideLoginDialog({ dispatch }) {
+function _hideLoginDialog({ dispatch }: { dispatch: Dispatch<*> }) {
     dispatch(hideDialog(LoginDialog));
 }
 
@@ -152,6 +167,6 @@ function _hideLoginDialog({ dispatch }) {
  * @param {Object} store - The redux store.
  * @returns {boolean}
  */
-function _isWaitingForOwner({ getState }) {
+function _isWaitingForOwner({ getState }: { getState: Function }) {
     return Boolean(getState()['features/authentication'].waitForOwnerTimeoutID);
 }

@@ -1,12 +1,14 @@
-/* @flow */
+// @flow
 
-import { setConfigFromURLParams } from '../../base/config';
-import { loadScript } from '../../base/util';
+import { setConfigFromURLParams } from '../config';
+import { toState } from '../redux';
+import { loadScript } from '../util';
 
 import JitsiMeetJS from './_';
 
 declare var APP: Object;
 
+const JitsiConferenceErrors = JitsiMeetJS.errors.conference;
 const JitsiConnectionErrors = JitsiMeetJS.errors.connection;
 
 /**
@@ -32,19 +34,69 @@ export function createLocalTrack(type: string, deviceId: string) {
 }
 
 /**
- * Determines whether a specific JitsiConnectionErrors instance indicates a
- * fatal JitsiConnection error.
+ * Determines whether analytics is enabled in a specific redux {@code store}.
  *
- * FIXME Figure out the category of errors defined by the fucntion and describe
+ * @param {Function|Object} stateful - The redux store, state, or
+ * {@code getState} function.
+ * @returns {boolean} If analytics is enabled, {@code true}; {@code false},
+ * otherwise.
+ */
+export function isAnalyticsEnabled(stateful: Function | Object) {
+    const {
+        analyticsScriptUrls,
+        disableThirdPartyRequests
+    } = toState(stateful)['features/base/config'];
+
+    return (
+        !disableThirdPartyRequests
+            && Array.isArray(analyticsScriptUrls)
+            && Boolean(analyticsScriptUrls.length));
+}
+
+/**
+ * Determines whether a specific {@link JitsiConferenceErrors} instance
+ * indicates a fatal {@link JitsiConference} error.
+ *
+ * FIXME Figure out the category of errors defined by the function and describe
  * that category. I've currently named the category fatal because it appears to
  * be used in the cases of unrecoverable errors that necessitate a reload.
  *
- * @param {string} error - The JitsiConnectionErrors instance to
- * categorize/classify.
- * @returns {boolean} True if the specified JitsiConnectionErrors instance
- * indicates a fatal JitsiConnection error; otherwise, false.
+ * @param {Object|string} error - The {@code JitsiConferenceErrors} instance to
+ * categorize/classify or an {@link Error}-like object.
+ * @returns {boolean} If the specified {@code JitsiConferenceErrors} instance
+ * indicates a fatal {@code JitsiConference} error, {@code true}; otherwise,
+ * {@code false}.
  */
-export function isFatalJitsiConnectionError(error: string) {
+export function isFatalJitsiConferenceError(error: Object | string) {
+    if (typeof error !== 'string') {
+        error = error.name; // eslint-disable-line no-param-reassign
+    }
+
+    return (
+        error === JitsiConferenceErrors.FOCUS_DISCONNECTED
+            || error === JitsiConferenceErrors.FOCUS_LEFT
+            || error === JitsiConferenceErrors.VIDEOBRIDGE_NOT_AVAILABLE);
+}
+
+/**
+ * Determines whether a specific {@link JitsiConnectionErrors} instance
+ * indicates a fatal {@link JitsiConnection} error.
+ *
+ * FIXME Figure out the category of errors defined by the function and describe
+ * that category. I've currently named the category fatal because it appears to
+ * be used in the cases of unrecoverable errors that necessitate a reload.
+ *
+ * @param {Object|string} error - The {@code JitsiConnectionErrors} instance to
+ * categorize/classify or an {@link Error}-like object.
+ * @returns {boolean} If the specified {@code JitsiConnectionErrors} instance
+ * indicates a fatal {@code JitsiConnection} error, {@code true}; otherwise,
+ * {@code false}.
+ */
+export function isFatalJitsiConnectionError(error: Object | string) {
+    if (typeof error !== 'string') {
+        error = error.name; // eslint-disable-line no-param-reassign
+    }
+
     return (
         error === JitsiConnectionErrors.CONNECTION_DROPPED_ERROR
             || error === JitsiConnectionErrors.OTHER_ERROR
@@ -55,14 +107,20 @@ export function isFatalJitsiConnectionError(error: string) {
  * Loads config.js from a specific remote server.
  *
  * @param {string} url - The URL to load.
+ * @param {number} [timeout] - The timeout for the configuration to be loaded,
+ * in milliseconds. If not specified, a default value deamed appropriate for the
+ * purpsoe is used.
  * @returns {Promise<Object>}
  */
-export function loadConfig(url: string) {
+export function loadConfig(
+        url: string,
+        timeout: ?number = 10 /* seconds */ * 1000 /* in milliseconds */
+): Promise<Object> {
     let promise;
 
     if (typeof APP === 'undefined') {
         promise
-            = loadScript(url)
+            = loadScript(url, timeout)
                 .then(() => {
                     const { config } = window;
 
@@ -97,24 +155,4 @@ export function loadConfig(url: string) {
     });
 
     return promise;
-}
-
-/**
- * Evaluates whether analytics is enabled or not based on
- * the redux {@code store}.
- *
- * @param {Store} store - The redux store in which the specified {@code action}
- * is being dispatched.
- * @returns {boolean} True if analytics is enabled, false otherwise.
- */
-export function isAnalyticsEnabled({ getState }: { getState: Function }) {
-    const {
-        analyticsScriptUrls,
-        disableThirdPartyRequests
-    } = getState()['features/base/config'];
-
-    const scriptURLs = Array.isArray(analyticsScriptUrls)
-        ? analyticsScriptUrls : [];
-
-    return Boolean(scriptURLs.length) && !disableThirdPartyRequests;
 }

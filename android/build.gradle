@@ -3,11 +3,11 @@
 
 buildscript {
     repositories {
+        google()
         jcenter()
-        maven { url 'https://maven.google.com' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.0-beta5'
+        classpath 'com.android.tools.build:gradle:3.0.1'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files.
@@ -16,9 +16,8 @@ buildscript {
 
 allprojects {
     repositories {
-        mavenLocal()
+        google()
         jcenter()
-        maven { url "https://maven.google.com" } // Required for appcompat.
         // React Native (JS, Obj-C sources, Android binaries) is installed from
         // npm.
         maven { url "$rootDir/../node_modules/react-native/android" }
@@ -58,7 +57,9 @@ allprojects {
 
             project.android {
                 compileSdkVersion rootProject.ext.compileSdkVersion
-                buildToolsVersion rootProject.ext.buildToolsVersion
+                if (rootProject.ext.has('buildToolsVersion')) {
+                    buildToolsVersion rootProject.ext.buildToolsVersion
+                }
                 defaultConfig {
                     minSdkVersion rootProject.ext.minSdkVersion
                     targetSdkVersion rootProject.ext.targetSdkVersion
@@ -128,10 +129,10 @@ allprojects {
 }
 
 ext {
-    compileSdkVersion = 25
-    buildToolsVersion = "25.0.3"
+    buildToolsVersion = "26.0.2"
+    compileSdkVersion = 26
     minSdkVersion    = 16
-    targetSdkVersion = 25
+    targetSdkVersion = 26
 
     // The Maven artifact groupdId of the third-party react-native modules which
     // Jitsi Meet SDK for Android depends on and which are not available in
@@ -145,8 +146,9 @@ ext {
 // modules that we utilize such as react-native-background-timer.
 subprojects { subproject ->
     afterEvaluate{
-        if (subproject.plugins.hasPlugin('android')
-                || subproject.plugins.hasPlugin('android-library')) {
+        if ((subproject.plugins.hasPlugin('android')
+                    || subproject.plugins.hasPlugin('android-library'))
+                && rootProject.ext.has('buildToolsVersion')) {
             android {
                 buildToolsVersion rootProject.ext.buildToolsVersion
             }

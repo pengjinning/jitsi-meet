@@ -1,3 +1,5 @@
+import Spinner from '@atlaskit/spinner';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 import DesktopSourcePreview from './DesktopSourcePreview';
@@ -17,28 +19,28 @@ class DesktopPickerPane extends Component {
         /**
          * The handler to be invoked when a DesktopSourcePreview is clicked.
          */
-        onClick: React.PropTypes.func,
+        onClick: PropTypes.func,
 
         /**
          * The handler to be invoked when a DesktopSourcePreview is double
          * clicked.
          */
-        onDoubleClick: React.PropTypes.func,
+        onDoubleClick: PropTypes.func,
 
         /**
          * The id of the DesktopCapturerSource that is currently selected.
          */
-        selectedSourceId: React.PropTypes.string,
+        selectedSourceId: PropTypes.string,
 
         /**
          * An array of DesktopCapturerSources.
          */
-        sources: React.PropTypes.array,
+        sources: PropTypes.array,
 
         /**
          * The source type of the DesktopCapturerSources to display.
          */
-        type: React.PropTypes.string
+        type: PropTypes.string
     };
 
     /**
@@ -59,15 +61,24 @@ class DesktopPickerPane extends Component {
         const classNames
             = `desktop-picker-pane default-scrollbar source-type-${type}`;
         const previews
-            = sources.map(
+            = sources ? sources.map(
                 source =>
+
+                    // eslint-disable-next-line react/jsx-wrap-multilines
                     <DesktopSourcePreview
                         key = { source.id }
                         onClick = { onClick }
                         onDoubleClick = { onDoubleClick }
                         selected = { source.id === selectedSourceId }
                         source = { source }
-                        type = { type } />);
+                        type = { type } />)
+                : ( // eslint-disable-line no-extra-parens
+                    <div className = 'desktop-picker-pane-spinner'>
+                        <Spinner
+                            isCompleting = { false }
+                            size = 'medium' />
+                    </div>
+                );
 
         return (
             <div className = { classNames }>

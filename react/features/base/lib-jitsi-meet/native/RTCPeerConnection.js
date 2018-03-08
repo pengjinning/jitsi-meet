@@ -1,5 +1,24 @@
+// @flow
+
 import { NativeModules } from 'react-native';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
+
+/* eslint-disable no-unused-vars */
+
+// Address families.
+const AF_INET6 = 30; /* IPv6 */
+
+// Protocols (RFC 1700)
+const IPPROTO_TCP = 6; /* tcp */
+const IPPROTO_UDP = 17; /* user datagram protocol */
+
+// Protocol families, same as address families for now.
+const PF_INET6 = AF_INET6;
+
+const SOCK_DGRAM = 2; /* datagram socket */
+const SOCK_STREAM = 1; /* stream socket */
+
+/* eslint-enable no-unused-vars */
 
 // XXX At the time of this writing extending RTCPeerConnection using ES6 'class'
 // and 'extends' causes a runtime error related to the attempt to define the
@@ -16,9 +35,9 @@ import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
  *
  * @class
  */
-export default function _RTCPeerConnection(...args) {
+export default function _RTCPeerConnection(...args: any[]) {
 
-    /* eslint-disable no-invalid-this */
+    /* eslint-disable indent, no-invalid-this */
 
     RTCPeerConnection.apply(this, args);
 
@@ -33,6 +52,8 @@ export default function _RTCPeerConnection(...args) {
     // _RTCPeerConnection's prototype may (or may not, I don't know) work but I
     // don't want to try because the following approach appears to work and I
     // understand it.
+
+    // $FlowFixMe
     Object.defineProperty(this, 'onaddstream', {
         configurable: true,
         enumerable: true,
@@ -44,11 +65,19 @@ export default function _RTCPeerConnection(...args) {
         }
     });
 
-    /* eslint-enable no-invalid-this */
+    /* eslint-enable indent, no-invalid-this */
 }
 
 _RTCPeerConnection.prototype = Object.create(RTCPeerConnection.prototype);
 _RTCPeerConnection.prototype.constructor = _RTCPeerConnection;
+
+_RTCPeerConnection.prototype.addIceCandidate
+    = _makePromiseAware(RTCPeerConnection.prototype.addIceCandidate, 1, 0);
+
+_RTCPeerConnection.prototype.createAnswer
+    = _makePromiseAware(RTCPeerConnection.prototype.createAnswer, 0, 1);
+_RTCPeerConnection.prototype.createOffer
+    = _makePromiseAware(RTCPeerConnection.prototype.createOffer, 0, 1);
 
 _RTCPeerConnection.prototype._invokeOnaddstream = function(...args) {
     const onaddstream = this._onaddstream;
@@ -72,6 +101,9 @@ _RTCPeerConnection.prototype._invokeQueuedOnaddstream = function(q) {
 _RTCPeerConnection.prototype._queueOnaddstream = function(...args) {
     this._onaddstreamQueue.push(Array.from(args));
 };
+
+_RTCPeerConnection.prototype.setLocalDescription
+  = _makePromiseAware(RTCPeerConnection.prototype.setLocalDescription, 1, 0);
 
 _RTCPeerConnection.prototype.setRemoteDescription = function(
         sessionDescription,
@@ -112,9 +144,53 @@ function _LOGE(...args) {
 }
 
 /**
+ * Makes a {@code Promise}-returning function out of a specific void function
+ * with {@code successCallback} and {@code failureCallback}.
+ *
+ * @param {Function} f - The (void) function with {@code successCallback} and
+ * {@code failureCallback}.
+ * @param {number} beforeCallbacks - The number of arguments before
+ * {@code successCallback} and {@code failureCallback}.
+ * @param {number} afterCallbacks - The number of arguments after
+ * {@code successCallback} and {@code failureCallback}.
+ * @returns {Promise}
+ */
+function _makePromiseAware(
+        f: Function,
+        beforeCallbacks: number,
+        afterCallbacks: number) {
+    return function(...args) {
+        return new Promise((resolve, reject) => {
+
+            if (args.length <= beforeCallbacks + afterCallbacks) {
+                args.splice(beforeCallbacks, 0, resolve, reject);
+            }
+
+            let fPromise;
+
+            try {
+                // eslint-disable-next-line no-invalid-this
+                fPromise = f.apply(this, args);
+            } catch (e) {
+                reject(e);
+            }
+
+            // If the super implementation returns a Promise from the deprecated
+            // invocation by any chance, try to make sense of it.
+            if (fPromise) {
+                const { then } = fPromise;
+
+                typeof then === 'function'
+                    && then.call(fPromise, resolve, reject);
+            }
+        });
+    };
+}
+
+/**
  * Adapts react-native-webrtc's {@link RTCPeerConnection#setRemoteDescription}
  * implementation which uses the deprecated, callback-based version to the
- * <tt>Promise</tt>-based version.
+ * {@code Promise}-based version.
  *
  * @param {RTCSessionDescription} sessionDescription - The RTCSessionDescription
  * which specifies the configuration of the remote end of the connection.
@@ -182,7 +258,7 @@ function _synthesizeIPv6Addresses(sdp) {
 /* eslint-disable max-depth */
 
 /**
- * Implements the initial phase of the synthesis of IPv6 addresses.
+ * Begins the asynchronous synthesis of IPv6 addresses.
  *
  * @param {RTCSessionDescription} sessionDescription - The RTCSessionDescription
  * for which IPv6 addresses will be synthesized.
@@ -197,7 +273,7 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
     let start = 0;
     const lines = [];
     const ips = new Map();
-    const getaddrinfo = NativeModules.POSIX.getaddrinfo;
+    const { getaddrinfo } = NativeModules.POSIX;
 
     do {
         const end = sdp.indexOf('\r\n', start);
@@ -236,8 +312,8 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
                                 if (v && typeof v === 'string') {
                                     resolve(v);
                                 } else {
-                                    getaddrinfo(ip).then(
-                                        value => {
+                                    getaddrinfo(ip, undefined).then(
+                                        ([ { ai_addr: value } ]) => {
                                             if (value.indexOf(':') === -1
                                                     || value === ips.get(ip)) {
                                                 ips.delete(ip);
@@ -275,7 +351,7 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
 /* eslint-enable max-depth */
 
 /**
- * Implements the initial phase of the synthesis of IPv6 addresses.
+ * Completes the asynchronous synthesis of IPv6 addresses.
  *
  * @param {RTCSessionDescription} sessionDescription - The RTCSessionDescription
  * for which IPv6 addresses are being synthesized.

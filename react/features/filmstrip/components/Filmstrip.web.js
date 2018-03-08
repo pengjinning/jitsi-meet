@@ -1,9 +1,11 @@
 /* @flow */
 
 import _ from 'lodash';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
+import { InviteButton } from '../../invite';
 import { Toolbox } from '../../toolbox';
 
 import { setFilmstripHovered } from '../actions';
@@ -15,7 +17,7 @@ import { shouldRemoteVideosBeVisible } from '../functions';
  *
  * @extends Component
  */
-class Filmstrip extends Component {
+class Filmstrip extends Component<*> {
     _isHovered: boolean;
 
     _notifyOfHoveredStateUpdate: Function;
@@ -31,25 +33,31 @@ class Filmstrip extends Component {
      */
     static propTypes = {
         /**
+         * Whether invite button rendering should be skipped,
+         * by default it is. false
+         */
+        _hideInviteButton: PropTypes.bool,
+
+        /**
          * Whether or not remote videos are currently being hovered over.
          */
-        _hovered: React.PropTypes.bool,
+        _hovered: PropTypes.bool,
 
         /**
          * Whether or not the remote videos should be visible. Will toggle
          * a class for hiding the videos.
          */
-        _remoteVideosVisible: React.PropTypes.bool,
+        _remoteVideosVisible: PropTypes.bool,
 
         /**
          * Updates the redux store with filmstrip hover changes.
          */
-        dispatch: React.PropTypes.func,
+        dispatch: PropTypes.func,
 
         /**
-         * Whether or not the toolbox should be displayed within the filmstrip.
+         * Whether or not the conference is in filmstripOnly mode.
          */
-        displayToolbox: React.PropTypes.bool
+        filmstripOnly: PropTypes.bool
     };
 
     /**
@@ -99,7 +107,7 @@ class Filmstrip extends Component {
 
         return (
             <div className = { filmstripClassNames }>
-                { this.props.displayToolbox ? <Toolbox /> : null }
+                { this.props.filmstripOnly ? <Toolbox /> : null }
                 <div
                     className = 'filmstrip__videos'
                     id = 'remoteVideos'>
@@ -107,7 +115,12 @@ class Filmstrip extends Component {
                         className = 'filmstrip__videos'
                         id = 'filmstripLocalVideo'
                         onMouseOut = { this._onMouseOut }
-                        onMouseOver = { this._onMouseOver } />
+                        onMouseOver = { this._onMouseOver }>
+                        { this.props.filmstripOnly
+                            || this.props._hideInviteButton
+                            ? null : <InviteButton /> }
+                        <div id = 'filmstripLocalVideoThumbnail' />
+                    </div>
                     <div
                         className = 'filmstrip__videos'
                         id = 'filmstripRemoteVideos'>
@@ -180,12 +193,14 @@ class Filmstrip extends Component {
  * @private
  * @returns {{
  *     _hovered: boolean,
+ *     _hideInviteButton: boolean,
  *     _remoteVideosVisible: boolean
  * }}
  */
 function _mapStateToProps(state) {
     return {
         _hovered: state['features/filmstrip'].hovered,
+        _hideInviteButton: state['features/base/config'].iAmRecorder,
         _remoteVideosVisible: shouldRemoteVideosBeVisible(state)
     };
 }

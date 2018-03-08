@@ -1,5 +1,6 @@
 /* @flow */
 
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
@@ -21,7 +22,7 @@ declare var interfaceConfig: Object;
 /**
  * Implements the conference toolbox on React/Web.
  */
-class Toolbox extends Component {
+class Toolbox extends Component<*> {
     /**
      * App component's property types.
      *
@@ -31,32 +32,32 @@ class Toolbox extends Component {
         /**
          * Indicates if the toolbox should always be visible.
          */
-        _alwaysVisible: React.PropTypes.bool,
+        _alwaysVisible: PropTypes.bool,
 
         /**
          * Handler dispatching setting default buttons action.
          */
-        _setDefaultToolboxButtons: React.PropTypes.func,
+        _setDefaultToolboxButtons: PropTypes.func,
 
         /**
          * Handler dispatching reset always visible toolbox action.
          */
-        _setToolboxAlwaysVisible: React.PropTypes.func,
+        _setToolboxAlwaysVisible: PropTypes.func,
 
         /**
          * Represents conference subject.
          */
-        _subject: React.PropTypes.string,
+        _subject: PropTypes.string,
 
         /**
          * Flag showing whether to set subject slide in animation.
          */
-        _subjectSlideIn: React.PropTypes.bool,
+        _subjectSlideIn: PropTypes.bool,
 
         /**
          * Property containing toolbox timeout id.
          */
-        _timeoutID: React.PropTypes.number
+        _timeoutID: PropTypes.number
     };
 
     /**
@@ -88,7 +89,7 @@ class Toolbox extends Component {
      * @inheritdoc
      * @returns {ReactElement}
      */
-    render(): ReactElement<*> {
+    render(): React$Element<*> {
         return (
             <div className = 'toolbox'>
                 {
@@ -108,7 +109,7 @@ class Toolbox extends Component {
      * @returns {ReactElement}
      * @private
      */
-    _renderSubject(): ReactElement<*> | null {
+    _renderSubject(): React$Element<*> | null {
         const { _subjectSlideIn, _subject } = this.props;
         const classNames = [ 'subject' ];
 
@@ -145,7 +146,7 @@ class Toolbox extends Component {
      * @returns {ReactElement}
      * @private
      */
-    _renderToolbars(): ReactElement<*> | null {
+    _renderToolbars(): React$Element<*> | null {
         // In case we're not in alwaysVisible mode the toolbox should not be
         // shown until timeoutID is initialized.
         if (!this.props._alwaysVisible && this.props._timeoutID === null) {

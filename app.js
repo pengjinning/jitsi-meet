@@ -1,17 +1,15 @@
 /* application specific logic */
 
+// FIXME: remove once atlaskit work with React 16
+// It seems that @atlaskit/icon is importing PropTypes from React, but it
+// happens through some glyph coffee script template. It could be that more
+// things are broken there (not only the icon).
+import './react/features/base/react/prop-types-polyfill.js';
+
 import 'jquery';
 import 'jquery-contextmenu';
-import 'jquery-ui';
-import 'strophe';
-import 'strophe-disco';
 import 'jQuery-Impromptu';
 import 'autosize';
-
-import 'aui';
-import 'aui-experimental';
-import 'aui-css';
-import 'aui-experimental-css';
 
 import conference from './conference';
 import API from './modules/API';

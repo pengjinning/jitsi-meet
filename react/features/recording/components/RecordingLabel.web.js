@@ -1,8 +1,8 @@
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import { translate } from '../../base/i18n';
-import { shouldRemoteVideosBeVisible } from '../../filmstrip';
 
 /**
  * Implements a React {@link Component} which displays the current state of
@@ -23,7 +23,7 @@ class RecordingLabel extends Component {
          * hidden. Depending on the filmstrip state, different CSS classes will
          * be set to allow for adjusting of {@code RecordingLabel} positioning.
          */
-        _filmstripVisible: React.PropTypes.bool,
+        _filmstripVisible: PropTypes.bool,
 
         /**
          * An object to describe the {@code RecordingLabel} content. If no
@@ -35,20 +35,12 @@ class RecordingLabel extends Component {
          *     showSpinner: boolean
          * }}
          */
-        _labelDisplayConfiguration: React.PropTypes.object,
-
-        /**
-         * Whether or not remote videos within the filmstrip are currently
-         * visible. Depending on the visibility state, coupled with filmstrip
-         * visibility, CSS classes will be set to allow for adjusting of
-         * {@code RecordingLabel} positioning.
-         */
-        _remoteVideosVisible: React.PropTypes.bool,
+        _labelDisplayConfiguration: PropTypes.object,
 
         /**
          * Invoked to obtain translated string.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -105,9 +97,7 @@ class RecordingLabel extends Component {
             centered ? '' : 'moveToCorner',
             this.state.filmstripBecomingVisible ? 'opening' : '',
             this.props._filmstripVisible
-                ? 'with-filmstrip' : 'without-filmstrip',
-            this.props._remoteVideosVisible
-                ? 'with-remote-videos' : 'without-remote-videos'
+                ? 'with-filmstrip' : 'without-filmstrip'
         ].join(' ');
 
         return (
@@ -136,8 +126,7 @@ class RecordingLabel extends Component {
  * @private
  * @returns {{
  *     _filmstripVisible: boolean,
- *     _labelDisplayConfiguration: Object,
- *     _remoteVideosVisible: boolean,
+ *     _labelDisplayConfiguration: Object
  * }}
  */
 function _mapStateToProps(state) {
@@ -158,14 +147,7 @@ function _mapStateToProps(state) {
          *
          * @type {Object}
          */
-        _labelDisplayConfiguration: labelDisplayConfiguration,
-
-        /**
-         * Whether or not remote videos are displayed in the filmstrip.
-         *
-         * @type {boolean}
-         */
-        _remoteVideosVisible: shouldRemoteVideosBeVisible(state)
+        _labelDisplayConfiguration: labelDisplayConfiguration
     };
 }
 

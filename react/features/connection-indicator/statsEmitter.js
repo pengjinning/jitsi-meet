@@ -1,6 +1,8 @@
+// @flow
+
 import _ from 'lodash';
 
-import JitsiMeetJS from '../base/lib-jitsi-meet';
+import { JitsiConnectionQualityEvents } from '../base/lib-jitsi-meet';
 
 declare var APP: Object;
 
@@ -25,13 +27,11 @@ const statsEmitter = {
      * {@code statsEmitter} should subscribe for stat updates.
      * @returns {void}
      */
-    startListeningForStats(conference) {
-        const { connectionQuality } = JitsiMeetJS.events;
-
-        conference.on(connectionQuality.LOCAL_STATS_UPDATED,
+    startListeningForStats(conference: Object) {
+        conference.on(JitsiConnectionQualityEvents.LOCAL_STATS_UPDATED,
             stats => this._onStatsUpdated(conference.myUserId(), stats));
 
-        conference.on(connectionQuality.REMOTE_STATS_UPDATED,
+        conference.on(JitsiConnectionQualityEvents.REMOTE_STATS_UPDATED,
             (id, stats) => this._emitStatsUpdate(id, stats));
     },
 
@@ -44,7 +44,7 @@ const statsEmitter = {
      * user have been updated.
      * @returns {void}
      */
-    subscribeToClientStats(id, callback) {
+    subscribeToClientStats(id: ?string, callback: Function) {
         if (!id) {
             return;
         }
@@ -66,7 +66,7 @@ const statsEmitter = {
      * stat updates for the specified user id.
      * @returns {void}
      */
-    unsubscribeToClientStats(id, callback) {
+    unsubscribeToClientStats(id: string, callback: Function) {
         if (!subscribers[id]) {
             return;
         }
@@ -89,7 +89,7 @@ const statsEmitter = {
      * @param {Object} stats - New connection stats for the user.
      * @returns {void}
      */
-    _emitStatsUpdate(id, stats = {}) {
+    _emitStatsUpdate(id: string, stats: Object = {}) {
         const callbacks = subscribers[id] || [];
 
         callbacks.forEach(callback => {
@@ -107,21 +107,20 @@ const statsEmitter = {
      * by the library.
      * @returns {void}
      */
-    _onStatsUpdated(currentUserId, stats) {
-        const allUserFramerates = stats.framerate;
-        const allUserResolutions = stats.resolution;
-
-        const currentUserFramerate = allUserFramerates[currentUserId];
-        const currentUserResolution = allUserResolutions[currentUserId];
+    _onStatsUpdated(currentUserId: string, stats: Object) {
+        const allUserFramerates = stats.framerate || {};
+        const allUserResolutions = stats.resolution || {};
 
         // FIXME resolution and framerate are hashes keyed off of user ids with
         // stat values. Receivers of stats expect resolution and framerate to
         // be primatives, not hashes, so overwrites the 'lib-jitsi-meet' stats
         // objects.
-        stats.framerate = currentUserFramerate;
-        stats.resolution = currentUserResolution;
+        const modifiedLocalStats = Object.assign({}, stats, {
+            framerate: allUserFramerates[currentUserId],
+            resolution: allUserResolutions[currentUserId]
+        });
 
-        this._emitStatsUpdate(currentUserId, stats);
+        this._emitStatsUpdate(currentUserId, modifiedLocalStats);
 
         // Get all the unique user ids from the framerate and resolution stats
         // and update remote user stats as needed.

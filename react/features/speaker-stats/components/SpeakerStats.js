@@ -1,18 +1,23 @@
-/* global APP, interfaceConfig */
+// @flow
 
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 
 import { Dialog } from '../../base/dialog';
 import { translate } from '../../base/i18n';
+import { getLocalParticipant } from '../../base/participants';
 import SpeakerStatsItem from './SpeakerStatsItem';
 import SpeakerStatsLabels from './SpeakerStatsLabels';
+
+declare var interfaceConfig: Object;
 
 /**
  * React component for displaying a list of speaker stats.
  *
  * @extends Component
  */
-class SpeakerStats extends Component {
+class SpeakerStats extends Component<*, *> {
     /**
      * SpeakerStats component's property types.
      *
@@ -20,15 +25,27 @@ class SpeakerStats extends Component {
      */
     static propTypes = {
         /**
+         * The display name for the local participant obtained from the redux
+         * store.
+         */
+        _localDisplayName: PropTypes.string,
+
+        /**
          * The JitsiConference from which stats will be pulled.
          */
-        conference: React.PropTypes.object,
+        conference: PropTypes.object,
 
         /**
          * The function to translate human-readable text.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
+
+    state = {
+        stats: {}
+    };
+
+    _updateInterval: number;
 
     /**
      * Initializes a new SpeakerStats instance.
@@ -39,10 +56,7 @@ class SpeakerStats extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            stats: {}
-        };
-        this._updateInterval = null;
+        // Bind event handlers so they are only bound once per instance.
         this._updateStats = this._updateStats.bind(this);
     }
 
@@ -92,18 +106,6 @@ class SpeakerStats extends Component {
     }
 
     /**
-     * Update the internal state with the latest speaker stats.
-     *
-     * @returns {void}
-     * @private
-     */
-    _updateStats() {
-        const stats = this.props.conference.getSpeakerStats();
-
-        this.setState({ stats });
-    }
-
-    /**
      * Create a SpeakerStatsItem instance for the passed in user id.
      *
      * @param {string} userId -  User id used to look up the associated
@@ -122,18 +124,19 @@ class SpeakerStats extends Component {
         const dominantSpeakerTime = statsModel.getTotalDominantSpeakerTime();
         const hasLeft = statsModel.hasLeft();
 
-        let displayName = '';
+        let displayName;
 
         if (statsModel.isLocalStats()) {
             const { t } = this.props;
             const meString = t('me');
 
-            displayName = APP.settings.getDisplayName();
-            displayName = displayName ? `${displayName} (${meString})`
-                : meString;
+            displayName = this.props._localDisplayName;
+            displayName
+                = displayName ? `${displayName} (${meString})` : meString;
         } else {
-            displayName = this.state.stats[userId].getDisplayName()
-                || interfaceConfig.DEFAULT_REMOTE_DISPLAY_NAME;
+            displayName
+                = this.state.stats[userId].getDisplayName()
+                    || interfaceConfig.DEFAULT_REMOTE_DISPLAY_NAME;
         }
 
         return (
@@ -145,6 +148,43 @@ class SpeakerStats extends Component {
                 key = { userId } />
         );
     }
+
+    _updateStats: () => void;
+
+    /**
+     * Update the internal state with the latest speaker stats.
+     *
+     * @returns {void}
+     * @private
+     */
+    _updateStats() {
+        const stats = this.props.conference.getSpeakerStats();
+
+        this.setState({ stats });
+    }
 }
 
-export default translate(SpeakerStats);
+/**
+ * Maps (parts of) the redux state to the associated SpeakerStats's props.
+ *
+ * @param {Object} state - The redux state.
+ * @private
+ * @returns {{
+ *     _localDisplayName: ?string
+ * }}
+ */
+function _mapStateToProps(state) {
+    const localParticipant = getLocalParticipant(state);
+
+    return {
+        /**
+         * The local display name.
+         *
+         * @private
+         * @type {string|undefined}
+         */
+        _localDisplayName: localParticipant && localParticipant.name
+    };
+}
+
+export default translate(connect(_mapStateToProps)(SpeakerStats));

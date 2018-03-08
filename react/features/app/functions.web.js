@@ -12,7 +12,7 @@ import {
 import {
     // eslint-disable-next-line camelcase
     _getRouteToRender as _super_getRouteToRender
-} from './functions.native';
+} from './getRouteToRender';
 
 declare var APP: Object;
 declare var interfaceConfig: Object;
@@ -39,7 +39,8 @@ const _INTERCEPT_COMPONENT_RULES = [
      * @returns {UnsupportedMobileBrowser|void} If the rule is satisfied then
      * we should intercept existing component by UnsupportedMobileBrowser.
      */
-    () => {
+    // eslint-disable-next-line no-unused-vars
+    state => {
         const OS = Platform.OS;
 
         if (OS === 'android' || OS === 'ios') {
@@ -103,7 +104,7 @@ export function _getRouteToRender(stateOrGetState: Object | Function) {
  */
 function _interceptComponent(
         stateOrGetState: Object | Function,
-        component: ReactElement<*>) {
+        component: React$Element<*>) {
     let result;
     const state = toState(stateOrGetState);
 
@@ -115,4 +116,13 @@ function _interceptComponent(
     }
 
     return result || component;
+}
+
+/**
+ * Returns application name.
+ *
+ * @returns {string} The application name.
+ */
+export function getName() {
+    return interfaceConfig.APP_NAME;
 }

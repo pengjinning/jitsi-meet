@@ -1,6 +1,8 @@
-import AKFieldText from '@atlaskit/field-text';
+// @flow
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import { FieldTextStateless as TextField } from '@atlaskit/field-text';
 
 import { setPassword } from '../../base/conference';
 import { Dialog } from '../../base/dialog';
@@ -10,7 +12,7 @@ import { translate } from '../../base/i18n';
  * Implements a React Component which prompts the user when a password is
  * required to join a conference.
  */
-class PasswordRequiredPrompt extends Component {
+class PasswordRequiredPrompt extends Component<*, *> {
     /**
      * PasswordRequiredPrompt component's property types.
      *
@@ -22,9 +24,13 @@ class PasswordRequiredPrompt extends Component {
          *
          * @type {JitsiConference}
          */
-        conference: React.PropTypes.object,
-        dispatch: React.PropTypes.func,
-        t: React.PropTypes.func
+        conference: PropTypes.object,
+        dispatch: PropTypes.func,
+        t: PropTypes.func
+    };
+
+    state = {
+        password: ''
     };
 
     /**
@@ -36,10 +42,7 @@ class PasswordRequiredPrompt extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            password: ''
-        };
-
+        // Bind event handlers so they are only bound once per instance.
         this._onPasswordChanged = this._onPasswordChanged.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
     }
@@ -58,7 +61,8 @@ class PasswordRequiredPrompt extends Component {
                 titleKey = 'dialog.passwordRequired'
                 width = 'small'>
                 { this._renderBody() }
-            </Dialog>);
+            </Dialog>
+        );
     }
 
     /**
@@ -70,7 +74,7 @@ class PasswordRequiredPrompt extends Component {
     _renderBody() {
         return (
             <div>
-                <AKFieldText
+                <TextField
                     autoFocus = { true }
                     compact = { true }
                     label = { this.props.t('dialog.passwordLabel') }
@@ -83,6 +87,8 @@ class PasswordRequiredPrompt extends Component {
         );
     }
 
+    _onPasswordChanged: ({ target: { value: * }}) => void;
+
     /**
      * Notifies this dialog that password has changed.
      *
@@ -90,17 +96,19 @@ class PasswordRequiredPrompt extends Component {
      * @private
      * @returns {void}
      */
-    _onPasswordChanged(event) {
+    _onPasswordChanged({ target: { value } }) {
         this.setState({
-            password: event.target.value
+            password: value
         });
     }
 
+    _onSubmit: () => boolean;
+
     /**
-     * Dispatches action to submit value from thus dialog.
+     * Dispatches action to submit value from this dialog.
      *
      * @private
-     * @returns {void}
+     * @returns {boolean}
      */
     _onSubmit() {
         const { conference } = this.props;

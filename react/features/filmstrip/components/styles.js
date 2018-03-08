@@ -1,24 +1,22 @@
-import { Platform } from '../../base/react';
-import { BoxModel, ColorPalette } from '../../base/styles';
+import { ColorPalette } from '../../base/styles';
+
+/**
+ * Size for the Avatar.
+ */
+export const AVATAR_SIZE = 50;
+
+/**
+ * The base style of {@link Filmstrip} shared between narrow and wide versions.
+ */
+const filmstrip = {
+    flexDirection: 'column',
+    flexGrow: 0
+};
 
 /**
  * The styles of the feature filmstrip common to both Web and native.
  */
 export default {
-    /**
-     * Avatar style.
-     */
-    avatar: {
-        alignSelf: 'center',
-
-        // XXX Workaround for Android: for images < 80 the border radius doesn't
-        // work properly, but applying a radius twice as big does the trick.
-        borderRadius: Platform.OS === 'android' ? 100 : 25,
-        flex: 0,
-        height: 50,
-        width: 50
-    },
-
     /**
      * Dominant speaker indicator style.
      */
@@ -40,26 +38,25 @@ export default {
     },
 
     /**
-     * The style of the Container which represents the very filmstrip.
+     * The style of the narrow {@link Filmstrip} version which displays
+     * thumbnails in a row at the bottom of the screen.
      */
-    filmstrip: {
+    filmstripNarrow: {
+        ...filmstrip,
         alignItems: 'flex-end',
-        alignSelf: 'stretch',
-        bottom: BoxModel.margin,
-        flex: 1,
-        flexDirection: 'column',
-        left: 0,
-        position: 'absolute',
-        right: 0
+        height: 90
     },
 
     /**
-     * The style of the content container of the ScrollView which is placed
-     * inside filmstrip and which contains the participants' thumbnails in order
-     * to allow scrolling through them if they do not fit within the display.
+     * The style of the wide {@link Filmstrip} version which displays thumbnails
+     * in a column on the short size of the screen.
      */
-    filmstripScrollViewContentContainer: {
-        paddingHorizontal: BoxModel.padding
+    filmstripWide: {
+        ...filmstrip,
+        bottom: 0,
+        left: 0,
+        position: 'absolute',
+        top: 0
     },
 
     /**
@@ -86,8 +83,7 @@ export default {
         borderWidth: 1,
         flex: 1,
         justifyContent: 'center',
-        marginLeft: 2,
-        marginRight: 2,
+        margin: 2,
         overflow: 'hidden',
         position: 'relative'
     },

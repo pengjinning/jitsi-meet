@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
@@ -17,9 +18,11 @@ import {
     styles,
     VideoMutedIndicator
 } from './_';
+import { AVATAR_SIZE } from './styles';
 
 /**
  * React component for video thumbnail.
+ *
  * @extends Component
  */
 class Thumbnail extends Component {
@@ -29,11 +32,11 @@ class Thumbnail extends Component {
      * @static
      */
     static propTypes = {
-        _audioTrack: React.PropTypes.object,
-        _largeVideo: React.PropTypes.object,
-        _videoTrack: React.PropTypes.object,
-        dispatch: React.PropTypes.func,
-        participant: React.PropTypes.object
+        _audioTrack: PropTypes.object,
+        _largeVideo: PropTypes.object,
+        _videoTrack: PropTypes.object,
+        dispatch: PropTypes.func,
+        participant: PropTypes.object
     };
 
     /**
@@ -93,7 +96,7 @@ class Thumbnail extends Component {
                             = { audioTrack.jitsiTrack.getOriginalStream() } /> }
 
                 <ParticipantView
-                    avatarStyle = { styles.avatar }
+                    avatarSize = { AVATAR_SIZE }
                     participantId = { participantId }
                     showAvatar = { participantNotInLargeVideo }
                     showVideo = { participantNotInLargeVideo }

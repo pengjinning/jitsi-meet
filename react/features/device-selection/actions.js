@@ -81,7 +81,7 @@ function _openDeviceSelectionDialogInPopup() {
         const scope = `dialog_${API_ID}`;
         const url = `${
             window.location.origin}/static/deviceSelectionPopup.html#scope=${
-                encodeURIComponent(JSON.stringify(scope))}`;
+            encodeURIComponent(JSON.stringify(scope))}`;
         const popup
             = window.open(
                 url,
@@ -132,8 +132,8 @@ function _openDeviceSelectionDialogInPopup() {
  * @param {Function} responseCallback - The callback that will send the
  * response.
  * @returns {boolean}
- */ // eslint-disable-next-line max-params
-function _processRequest(dispatch, getState, request, responseCallback) {
+ */
+function _processRequest(dispatch, getState, request, responseCallback) { // eslint-disable-line max-len, max-params
     if (request.type === 'devices') {
         switch (request.name) {
         case 'isDeviceListAvailable':

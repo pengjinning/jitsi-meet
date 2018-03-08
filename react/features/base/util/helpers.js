@@ -1,3 +1,5 @@
+// @flow
+
 /**
  * Returns the namespace for all global variables, functions, etc that we need.
  *

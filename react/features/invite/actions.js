@@ -1,30 +1,33 @@
-import { openDialog } from '../../features/base/dialog';
+// @flow
 
 import {
+    SET_INFO_DIALOG_VISIBILITY,
     UPDATE_DIAL_IN_NUMBERS_FAILED,
     UPDATE_DIAL_IN_NUMBERS_SUCCESS
 } from './actionTypes';
-import { AddPeopleDialog, InviteDialog } from './components';
 
 declare var $: Function;
-declare var APP: Object;
 
 /**
- * Opens the Invite Dialog.
+ * Opens the inline conference info dialog.
  *
- * @returns {Function}
+ * @param {boolean} visible - Whether or not the dialog should be displayed.
+ * @param {boolean} autoClose - Whether or not the dialog should automatically
+ * close after a set period of time.
+ * @returns {{
+ *     type: SET_INFO_DIALOG_VISIBILITY,
+ *     autoClose: boolean,
+ *     visible: boolean
+ * }}
  */
-export function openInviteDialog() {
-    return openDialog(InviteDialog);
-}
-
-/**
- * Opens the Add People Dialog.
- *
- * @returns {Function}
- */
-export function openAddPeopleDialog() {
-    return openDialog(AddPeopleDialog);
+export function setInfoDialogVisibility(
+        visible: boolean,
+        autoClose: boolean = false) {
+    return {
+        type: SET_INFO_DIALOG_VISIBILITY,
+        autoClose,
+        visible
+    };
 }
 
 /**
@@ -33,7 +36,7 @@ export function openAddPeopleDialog() {
  * @returns {Function}
  */
 export function updateDialInNumbers() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
         const { dialInConfCodeUrl, dialInNumbersUrl, hosts }
             = state['features/base/config'];

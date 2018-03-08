@@ -24,7 +24,24 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-
+.icon-arrow_back:before {
+  content: "\e5c4";
+}
+.icon-event_note:before {
+    content: "\e616";
+}
+.icon-menu:before {
+  content: "\e5d2";
+}
+.icon-navigate_before:before {
+  content: "\e408";
+}
+.icon-public:before {
+    content: "\e80b";
+}
+.icon-timer:before {
+    content: "\e425";
+}
 .icon-thumb-menu:before {
     content: "\e5d4";
 }
@@ -127,12 +144,6 @@
 .icon-volume:before {
     content: "\e91a";
 }
-.icon-connection-lost:before {
-    content: "\e900";
-}
-.icon-connection:before {
-    content: "\e61a";
-}
 .icon-recDisable:before {
     content: "\e613";
 }
@@ -156,4 +167,10 @@
 }
 .icon-add:before {
     content: "\e145";
+}
+.icon-info:before {
+    content: "\e922";
+}
+.icon-gsm-bars:before {
+    content: "\e926";
 }

@@ -1,11 +1,17 @@
+// @flow
+
 import SideContainerToggler
     from '../../../modules/UI/side_pannels/SideContainerToggler';
 
-import defaultToolbarButtons from './defaultToolbarButtons';
+import getDefaultButtons from './defaultToolbarButtons';
 
 declare var interfaceConfig: Object;
 
-export { abstractMapStateToProps, getButton } from './functions.native';
+export {
+    abstractMapDispatchToProps,
+    abstractMapStateToProps,
+    getButton
+} from './functions.native';
 
 /**
  * Returns an object which contains the default buttons for the primary and
@@ -27,7 +33,8 @@ export function getDefaultToolboxButtons(buttonHandlers: Object): Object {
         toolbarButtons
             = interfaceConfig.TOOLBAR_BUTTONS.reduce(
                 (acc, buttonName) => {
-                    let button = defaultToolbarButtons[buttonName];
+                    const buttons = getDefaultButtons();
+                    let button = buttons ? buttons[buttonName] : null;
                     const currentButtonHandlers = buttonHandlers[buttonName];
 
                     if (button) {
@@ -100,7 +107,7 @@ export function getToolbarClassNames(props: Object) {
  * @returns {boolean} - True to indicate that the given toolbar button
  * is enabled, false - otherwise.
  */
-export function isButtonEnabled(name) {
+export function isButtonEnabled(name: string) {
     return interfaceConfig.TOOLBAR_BUTTONS.indexOf(name) !== -1
             || interfaceConfig.MAIN_TOOLBAR_BUTTONS.indexOf(name) !== -1;
 }

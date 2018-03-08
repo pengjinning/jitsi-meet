@@ -1,9 +1,8 @@
+// @flow
+
 import { _handleParticipantError } from '../base/conference';
 import { MEDIA_TYPE, VIDEO_TYPE } from '../base/media';
-import {
-    getLocalVideoTrack,
-    getTrackByMediaTypeAndParticipant
-} from '../base/tracks';
+import { getTrackByMediaTypeAndParticipant } from '../base/tracks';
 
 import {
     SELECT_LARGE_VIDEO_PARTICIPANT,
@@ -16,9 +15,9 @@ import {
  * @returns {Function}
  */
 export function selectParticipant() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
-        const conference = state['features/base/conference'].conference;
+        const { conference } = state['features/base/conference'];
 
         if (conference) {
             const largeVideo = state['features/large-video'];
@@ -51,7 +50,7 @@ export function selectParticipant() {
  * @returns {Function}
  */
 export function selectParticipantInLargeVideo() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
         const participantId = _electParticipantInLargeVideo(state);
         const largeVideo = state['features/large-video'];
@@ -76,7 +75,7 @@ export function selectParticipantInLargeVideo() {
  *     resolution: number
  * }}
  */
-export function updateKnownLargeVideoResolution(resolution) {
+export function updateKnownLargeVideoResolution(resolution: number) {
     return {
         type: UPDATE_KNOWN_LARGE_VIDEO_RESOLUTION,
         resolution
@@ -84,14 +83,13 @@ export function updateKnownLargeVideoResolution(resolution) {
 }
 
 /**
- * Returns the most recent existing video track. It can be local or remote
- * video.
+ * Returns the most recent existing remote video track.
  *
  * @param {Track[]} tracks - All current tracks.
  * @private
  * @returns {(Track|undefined)}
  */
-function _electLastVisibleVideo(tracks) {
+function _electLastVisibleRemoteVideo(tracks) {
     // First we try to get most recent remote video track.
     for (let i = tracks.length - 1; i >= 0; --i) {
         const track = tracks[i];
@@ -100,44 +98,50 @@ function _electLastVisibleVideo(tracks) {
             return track;
         }
     }
-
-    // And if no remote video tracks are available, we select the local one.
-    return getLocalVideoTrack(tracks);
 }
 
 /**
  * Returns the identifier of the participant who is to be on the stage i.e.
- * should be displayed in <tt>LargeVideo</tt>.
+ * should be displayed in {@code LargeVideo}.
  *
  * @param {Object} state - The Redux state from which the participant to be
- * displayed in <tt>LargeVideo</tt> is to be elected.
+ * displayed in {@code LargeVideo} is to be elected.
  * @private
  * @returns {(string|undefined)}
  */
 function _electParticipantInLargeVideo(state) {
-    // First get the pinned participant. If the local participant is pinned,
-    // he/she will be shown in LargeVideo.
+    // 1. If a participant is pinned, they will be shown in the LargeVideo (
+    //    regardless of whether they are local or remote).
     const participants = state['features/base/participants'];
     let participant = participants.find(p => p.pinned);
-    let id = participant ? participant.id : undefined;
+    let id = participant && participant.id;
 
     if (!id) {
-        // No participant is pinned so get the dominant speaker. But the local
-        // participant won't be displayed in LargeVideo even if he/she is the
-        // dominant speaker.
+        // 2. No participant is pinned so get the dominant speaker. But the
+        //    local participant won't be displayed in LargeVideo even if she is
+        //    the dominant speaker.
         participant = participants.find(p => p.dominantSpeaker && !p.local);
-        if (participant) {
-            id = participant.id;
-        }
+        id = participant && participant.id;
 
         if (!id) {
-            // There is no dominant speaker so get the participant with the last
-            // visible video track. This may turn out to be the local
-            // participant.
+            // 3. There is no dominant speaker so select the remote participant
+            //    who last had visible video.
             const tracks = state['features/base/tracks'];
-            const videoTrack = _electLastVisibleVideo(tracks);
+            const videoTrack = _electLastVisibleRemoteVideo(tracks);
 
             id = videoTrack && videoTrack.participantId;
+
+            if (!id) {
+                // 4. It's possible there is no participant with visible video.
+                //    This can happen for a number of reasons:
+                //    - there is only one participant (i.e. the local user),
+                //    - other participants joined with video muted.
+                //    As a last resort, pick the last participant who joined the
+                //    conference (regardless of whether they are local or
+                //    remote).
+                participant = participants[participants.length - 1];
+                id = participant && participant.id;
+            }
         }
     }
 

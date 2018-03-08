@@ -1,28 +1,34 @@
+// @flow
+
 import { equals, ReducerRegistry } from '../redux';
 
 import { SET_LOGGING_CONFIG } from './actionTypes';
 
 /**
- * The initial state of the feature base/logging.
+ * The default/initial redux state of the feature base/logging.
+ *
+ * XXX When making any changes to the DEFAULT_STATE make sure to also update
+ * logging_config.js file located in the root directory of this project !!!
  *
  * @type {{
  *     config: Object
  * }}
  */
-const INITIAL_STATE = {
+const DEFAULT_STATE = {
     config: {
         defaultLogLevel: 'trace',
 
         // The following are too verbose in their logging with the
         // {@link #defaultLogLevel}:
         'modules/statistics/CallStats.js': 'info',
-        'modules/xmpp/strophe.util.js': 'log'
+        'modules/xmpp/strophe.util.js': 'log',
+        'modules/RTC/TraceablePeerConnection.js': 'info'
     }
 };
 
 ReducerRegistry.register(
     'features/base/logging',
-    (state = INITIAL_STATE, action) => {
+    (state = DEFAULT_STATE, action) => {
         switch (action.type) {
         case SET_LOGGING_CONFIG:
             return _setLoggingConfig(state, action);
@@ -44,9 +50,9 @@ ReducerRegistry.register(
  */
 function _setLoggingConfig(state, action) {
     const config = {
-        // The config of INITIAL_STATE is the default configuration of the
+        // The config of DEFAULT_STATE is the default configuration of the
         // feature base/logging.
-        ...INITIAL_STATE.config,
+        ...DEFAULT_STATE.config,
         ...action.config
     };
 

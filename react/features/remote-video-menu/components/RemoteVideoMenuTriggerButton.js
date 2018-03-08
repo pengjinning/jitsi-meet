@@ -1,4 +1,9 @@
+// @flow
+
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
+
+import { Popover } from '../../base/popover';
 
 import {
     MuteButton,
@@ -7,8 +12,6 @@ import {
     RemoteVideoMenu,
     VolumeSlider
 } from './';
-
-import { Popover } from '../../base/popover';
 
 declare var $: Object;
 declare var interfaceConfig: Object;
@@ -19,51 +22,61 @@ declare var interfaceConfig: Object;
  *
  * @extends {Component}
  */
-class RemoteVideoMenuTriggerButton extends Component {
+class RemoteVideoMenuTriggerButton extends Component<*> {
     static propTypes = {
         /**
          * A value between 0 and 1 indicating the volume of the participant's
          * audio element.
          */
-        initialVolumeValue: React.PropTypes.number,
+        initialVolumeValue: PropTypes.number,
 
         /**
          * Whether or not the participant is currently muted.
          */
-        isAudioMuted: React.PropTypes.bool,
+        isAudioMuted: PropTypes.bool,
 
         /**
          * Whether or not the participant is a conference moderator.
          */
-        isModerator: React.PropTypes.bool,
+        isModerator: PropTypes.bool,
 
         /**
          * Callback to invoke when the popover has been displayed.
          */
-        onMenuDisplay: React.PropTypes.func,
+        onMenuDisplay: PropTypes.func,
 
         /**
          * Callback to invoke choosing to start a remote control session with
          * the participant.
          */
-        onRemoteControlToggle: React.PropTypes.func,
+        onRemoteControlToggle: PropTypes.func,
 
         /**
          * Callback to invoke when changing the level of the participant's
          * audio element.
          */
-        onVolumeChange: React.PropTypes.func,
+        onVolumeChange: PropTypes.func,
 
         /**
          * The ID for the participant on which the remote video menu will act.
          */
-        participantID: React.PropTypes.string,
+        participantID: PropTypes.string,
 
         /**
          * The current state of the participant's remote control session.
          */
-        remoteControlState: React.PropTypes.number
+        remoteControlState: PropTypes.number
     };
+
+    /**
+     * The internal reference to topmost DOM/HTML element backing the React
+     * {@code Component}. Accessed directly for associating an element as
+     * the trigger for a popover.
+     *
+     * @private
+     * @type {HTMLDivElement}
+     */
+    _rootElement = null;
 
     /**
      * Initializes a new {#@code RemoteVideoMenuTriggerButton} instance.
@@ -71,18 +84,8 @@ class RemoteVideoMenuTriggerButton extends Component {
      * @param {Object} props - The read-only properties with which the new
      * instance is to be initialized.
      */
-    constructor(props) {
+    constructor(props: Object) {
         super(props);
-
-        /**
-         * The internal reference to topmost DOM/HTML element backing the React
-         * {@code Component}. Accessed directly for associating an element as
-         * the trigger for a popover.
-         *
-         * @private
-         * @type {HTMLDivElement}
-         */
-        this._rootElement = null;
 
         // Bind event handler so it is only bound once for every instance.
         this._onShowRemoteMenu = this._onShowRemoteMenu.bind(this);
@@ -106,7 +109,7 @@ class RemoteVideoMenuTriggerButton extends Component {
                 content = { content }
                 onPopoverOpen = { this._onShowRemoteMenu }
                 position = { interfaceConfig.VERTICAL_FILMSTRIP
-                    ? 'left middle' : 'top center' }>
+                    ? 'left bottom' : 'top center' }>
                 <span
                     className = 'popover-trigger remote-video-menu-trigger'>
                     <i
@@ -116,6 +119,8 @@ class RemoteVideoMenuTriggerButton extends Component {
             </Popover>
         );
     }
+
+    _onShowRemoteMenu: () => void;
 
     /**
      * Opens the {@code RemoteVideoMenu}.
@@ -171,7 +176,7 @@ class RemoteVideoMenuTriggerButton extends Component {
             );
         }
 
-        if (onVolumeChange && isModerator) {
+        if (onVolumeChange) {
             buttons.push(
                 <VolumeSlider
                     initialValue = { initialVolumeValue }

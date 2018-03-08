@@ -1,25 +1,26 @@
-import React, { Component } from 'react';
-import { Immutable } from 'nuclear-js';
-import { connect } from 'react-redux';
+// @flow
+
 import Avatar from '@atlaskit/avatar';
 import InlineMessage from '@atlaskit/inline-message';
+import { Immutable } from 'nuclear-js';
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
+import { connect } from 'react-redux';
 
 import { getInviteURL } from '../../base/connection';
 import { Dialog, hideDialog } from '../../base/dialog';
 import { translate } from '../../base/i18n';
-import MultiSelectAutocomplete
-    from '../../base/react/components/web/MultiSelectAutocomplete';
+import { MultiSelectAutocomplete } from '../../base/react';
 
-import { invitePeople, inviteRooms, searchPeople } from '../functions';
+import { invitePeopleAndChatRooms, searchDirectory } from '../functions';
+import { inviteVideoRooms } from '../../videosipgw';
 
 declare var interfaceConfig: Object;
-
-const { PropTypes } = React;
 
 /**
  * The dialog that allows to invite people to the call.
  */
-class AddPeopleDialog extends Component {
+class AddPeopleDialog extends Component<*, *> {
     /**
      * {@code AddPeopleDialog}'s property types.
      *
@@ -63,9 +64,62 @@ class AddPeopleDialog extends Component {
         hideDialog: PropTypes.func,
 
         /**
+         * Used to invite video rooms.
+         */
+        inviteVideoRooms: PropTypes.func,
+
+        /**
          * Invoked to obtain translated strings.
          */
         t: PropTypes.func
+    };
+
+    _multiselect = null;
+
+    _resourceClient = {
+        makeQuery: text => {
+            const {
+                _jwt,
+                _peopleSearchQueryTypes,
+                _peopleSearchUrl
+            } = this.props; // eslint-disable-line no-invalid-this
+
+            return (
+                searchDirectory(
+                    _peopleSearchUrl,
+                    _jwt,
+                    text,
+                    _peopleSearchQueryTypes));
+        },
+
+        parseResults: response => response.map(user => {
+            return {
+                content: user.name,
+                elemBefore: <Avatar
+                    size = 'medium'
+                    src = { user.avatar } />,
+                item: user,
+                value: user.id
+            };
+        })
+    };
+
+    state = {
+        /**
+         * Indicating that an error occurred when adding people to the call.
+         */
+        addToCallError: false,
+
+        /**
+         * Indicating that we're currently adding the new people to the
+         * call.
+         */
+        addToCallInProgress: false,
+
+        /**
+         * The list of invite items.
+         */
+        inviteItems: new Immutable.List()
     };
 
     /**
@@ -77,56 +131,7 @@ class AddPeopleDialog extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            /**
-             * Indicating that an error occurred when adding people to the call.
-             */
-            addToCallError: false,
-
-            /**
-             * Indicating that we're currently adding the new people to the
-             * call.
-             */
-            addToCallInProgress: false,
-
-            /**
-             * The list of invite items.
-             */
-            inviteItems: new Immutable.List()
-        };
-
-        this._multiselect = null;
-        this._resourceClient = {
-            makeQuery: text => {
-                const {
-                    _jwt,
-                    _peopleSearchQueryTypes,
-                    _peopleSearchUrl
-                } = this.props;
-
-                return searchPeople(
-                    _peopleSearchUrl,
-                    _jwt,
-                    text,
-                    _peopleSearchQueryTypes
-                );
-            },
-            parseResults: response => response.map(user => {
-                const avatar = ( // eslint-disable-line no-extra-parens
-                    <Avatar
-                        size = 'medium'
-                        src = { user.avatar } />
-                );
-
-                return {
-                    content: user.name,
-                    value: user.id,
-                    elemBefore: avatar,
-                    item: user
-                };
-            })
-        };
-
+        // Bind event handlers so they are only bound once per instance.
         this._isAddDisabled = this._isAddDisabled.bind(this);
         this._onSelectionChange = this._onSelectionChange.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
@@ -145,9 +150,9 @@ class AddPeopleDialog extends Component {
          * invite.
          */
         if (prevState.addToCallError
-            && !this.state.addToCallInProgress
-            && !this.state.addToCallError
-            && this._multiselect) {
+                && !this.state.addToCallInProgress
+                && !this.state.addToCallError
+                && this._multiselect) {
             this._multiselect.clear();
         }
     }
@@ -170,43 +175,21 @@ class AddPeopleDialog extends Component {
         );
     }
 
-    /**
-     * Renders the input form.
-     *
-     * @returns {ReactElement}
-     * @private
-     */
-    _renderUserInputForm() {
-        const { t } = this.props;
-
-        return (
-            <div className = 'add-people-form-wrap'>
-                { this._renderErrorMessage() }
-                <MultiSelectAutocomplete
-                    isDisabled
-                        = { this.state.addToCallInProgress || false }
-                    noMatchesFound = { t('addPeople.noResults') }
-                    onSelectionChange = { this._onSelectionChange }
-                    placeholder = { t('addPeople.searchPlaceholder') }
-                    ref = { this._setMultiSelectElement }
-                    resourceClient = { this._resourceClient }
-                    shouldFitContainer = { true }
-                    shouldFocus = { true } />
-            </div>
-        );
-    }
+    _isAddDisabled: () => boolean;
 
     /**
      * Indicates if the Add button should be disabled.
      *
+     * @private
      * @returns {boolean} - True to indicate that the Add button should
      * be disabled, false otherwise.
-     * @private
      */
     _isAddDisabled() {
         return !this.state.inviteItems.length
             || this.state.addToCallInProgress;
     }
+
+    _onSelectionChange: (Map<*, *>) => void;
 
     /**
      * Handles a selection change.
@@ -223,6 +206,8 @@ class AddPeopleDialog extends Component {
         });
     }
 
+    _onSubmit: () => void;
+
     /**
      * Handles the submit button action.
      *
@@ -235,38 +220,41 @@ class AddPeopleDialog extends Component {
                 addToCallInProgress: true
             });
 
-            this.props._conference
-                && inviteRooms(
-                    this.props._conference,
-                    this.state.inviteItems.filter(
-                        i => i.type === 'videosipgw'));
+            const vrooms = this.state.inviteItems.filter(
+                i => i.type === 'videosipgw');
 
-            invitePeople(
+            this.props._conference
+                && vrooms.length > 0
+                && this.props.inviteVideoRooms(this.props._conference, vrooms);
+
+            invitePeopleAndChatRooms(
                 this.props._inviteServiceUrl,
                 this.props._inviteUrl,
                 this.props._jwt,
-                this.state.inviteItems.filter(i => i.type === 'user'))
-            .then(() => {
-                this.setState({
-                    addToCallInProgress: false
-                });
+                this.state.inviteItems.filter(
+                    i => i.type === 'user' || i.type === 'room'))
+            .then(
+                /* onFulfilled */ () => {
+                    this.setState({
+                        addToCallInProgress: false
+                    });
 
-                this.props.hideDialog();
-            })
-            .catch(() => {
-                this.setState({
-                    addToCallInProgress: false,
-                    addToCallError: true
+                    this.props.hideDialog();
+                },
+                /* onRejected */ () => {
+                    this.setState({
+                        addToCallInProgress: false,
+                        addToCallError: true
+                    });
                 });
-            });
         }
     }
 
     /**
      * Renders the error message if the add doesn't succeed.
      *
-     * @returns {ReactElement|null}
      * @private
+     * @returns {ReactElement|null}
      */
     _renderErrorMessage() {
         if (!this.state.addToCallError) {
@@ -306,6 +294,34 @@ class AddPeopleDialog extends Component {
     }
 
     /**
+     * Renders the input form.
+     *
+     * @private
+     * @returns {ReactElement}
+     */
+    _renderUserInputForm() {
+        const { t } = this.props;
+
+        return (
+            <div className = 'add-people-form-wrap'>
+                { this._renderErrorMessage() }
+                <MultiSelectAutocomplete
+                    isDisabled
+                        = { this.state.addToCallInProgress || false }
+                    noMatchesFound = { t('addPeople.noResults') }
+                    onSelectionChange = { this._onSelectionChange }
+                    placeholder = { t('addPeople.searchPlaceholder') }
+                    ref = { this._setMultiSelectElement }
+                    resourceClient = { this._resourceClient }
+                    shouldFitContainer = { true }
+                    shouldFocus = { true } />
+            </div>
+        );
+    }
+
+    _setMultiSelectElement: (React$ElementRef<*> | null) => mixed;
+
+    /**
      * Sets the instance variable for the multi select component
      * element so it can be accessed directly.
      *
@@ -325,8 +341,8 @@ class AddPeopleDialog extends Component {
  * @param {Object} state - The Redux state.
  * @private
  * @returns {{
- *     _peopleSearchUrl: React.PropTypes.string,
- *     _jwt: React.PropTypes.string
+ *     _jwt: string,
+ *     _peopleSearchUrl: string
  * }}
  */
 function _mapStateToProps(state) {
@@ -335,17 +351,19 @@ function _mapStateToProps(state) {
         inviteServiceUrl,
         peopleSearchQueryTypes,
         peopleSearchUrl
-     } = state['features/base/config'];
+    } = state['features/base/config'];
 
     return {
         _conference: conference,
-        _jwt: state['features/jwt'].jwt,
-        _inviteUrl: getInviteURL(state),
         _inviteServiceUrl: inviteServiceUrl,
+        _inviteUrl: getInviteURL(state),
+        _jwt: state['features/base/jwt'].jwt,
         _peopleSearchQueryTypes: peopleSearchQueryTypes,
         _peopleSearchUrl: peopleSearchUrl
     };
 }
 
-export default translate(
-    connect(_mapStateToProps, { hideDialog })(AddPeopleDialog));
+export default translate(connect(_mapStateToProps, {
+    hideDialog,
+    inviteVideoRooms })(
+    AddPeopleDialog));

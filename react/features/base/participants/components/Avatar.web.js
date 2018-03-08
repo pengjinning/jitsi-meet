@@ -1,23 +1,22 @@
+// @flow
+
 import React, { Component } from 'react';
+
+/**
+ * The type of the React {@link Component} props of {@link Avatar}.
+ */
+type Props = {
+
+    /**
+     * The URI of the {@link Avatar}.
+     */
+    uri: string
+};
 
 /**
  * Implements an avatar as a React/Web {@link Component}.
  */
-export default class Avatar extends Component {
-    /**
-     * Avatar component's property types.
-     *
-     * @static
-     */
-    static propTypes = {
-        /**
-         * The URI of the {@link Avatar}.
-         *
-         * @type {string}
-         */
-        uri: React.PropTypes.string
-    };
-
+export default class Avatar extends Component<Props> {
     /**
      * Implements React's {@link Component#render()}.
      *

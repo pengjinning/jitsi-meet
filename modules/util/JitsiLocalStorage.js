@@ -1,7 +1,12 @@
+import Logger from 'jitsi-meet-logger';
+
+const logger = Logger.getLogger(__filename);
+
 /**
  * Dummy implementation of Storage interface with empty methods.
  */
 class DummyLocalStorage {
+    /* eslint-disable no-empty-function */
     /**
      * Empty function
      */
@@ -16,6 +21,7 @@ class DummyLocalStorage {
      * Empty function
      */
     removeItem() { }
+    /* eslint-enable no-empty-function */
 }
 
 /**
@@ -26,8 +32,15 @@ class JitsiLocalStorage extends DummyLocalStorage {
      * @constructor
      * @param {Storage} storage browser's local storage object.
      */
-    constructor(storage) {
+    constructor() {
         super();
+        let storage;
+
+        try {
+            storage = window.localStorage;
+        } catch (error) {
+            logger.error(error);
+        }
         this.storage = storage || new DummyLocalStorage();
     }
 
@@ -61,4 +74,4 @@ class JitsiLocalStorage extends DummyLocalStorage {
     }
 }
 
-export default new JitsiLocalStorage(window.localStorage);
+export default new JitsiLocalStorage();

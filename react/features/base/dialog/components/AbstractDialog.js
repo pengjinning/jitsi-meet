@@ -1,45 +1,47 @@
-import PropTypes from 'prop-types';
+// @flow
+
 import { Component } from 'react';
 
 import { hideDialog } from '../actions';
-import { DIALOG_PROP_TYPES } from '../constants';
+import type { DialogProps } from '../constants';
+
+/**
+ * The type of the React {@code Component} props of {@link AbstractDialog}.
+ */
+export type Props = {
+    ...DialogProps,
+
+    /**
+     * Used to show/hide the dialog on cancel.
+     */
+    dispatch: Dispatch<*>
+};
+
+/**
+ * The type of the React {@code Component} state of {@link AbstractDialog}.
+ */
+export type State = {
+    submitting: ?boolean
+};
 
 /**
  * An abstract implementation of a dialog on Web/React and mobile/react-native.
  */
-export default class AbstractDialog extends Component {
-    /**
-     * <tt>AbstractDialog</tt> React <tt>Component</tt>'s prop types.
-     *
-     * @static
-     */
-    static propTypes = {
-        ...DIALOG_PROP_TYPES,
+export default class AbstractDialog<P : Props, S : State>
+    extends Component<P, S> {
 
-        /**
-         * The React <tt>Component</tt> children of <tt>AbstractDialog</tt>
-         * which represents the dialog's body.
-         */
-        children: PropTypes.node,
-
-        /**
-         * Used to show/hide the dialog on cancel.
-         */
-        dispatch: PropTypes.func
-    };
+    _mounted: boolean;
 
     /**
-     * Initializes a new <tt>AbstractDialog</tt> instance.
+     * Initializes a new {@code AbstractDialog} instance.
      *
-     * @param {Object} props - The read-only React <tt>Component</tt> props with
+     * @param {Object} props - The read-only React {@code Component} props with
      * which the new instance is to be initialized.
      */
-    constructor(props) {
+    constructor(props: P) {
         super(props);
 
-        this.state = {
-        };
-
+        // Bind event handlers so they are only bound once per instance.
         this._onCancel = this._onCancel.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
         this._onSubmitFulfilled = this._onSubmitFulfilled.bind(this);
@@ -67,6 +69,17 @@ export default class AbstractDialog extends Component {
     }
 
     /**
+     * Dispatches a redux action to hide this dialog.
+     *
+     * @returns {*} The return value of {@link hideDialog}.
+     */
+    _hide() {
+        return this.props.dispatch(hideDialog());
+    }
+
+    _onCancel: () => void;
+
+    /**
      * Dispatches a redux action to hide this dialog when it's canceled.
      *
      * @protected
@@ -77,23 +90,25 @@ export default class AbstractDialog extends Component {
 
         if ((typeof cancelDisabled === 'undefined' || !cancelDisabled)
                 && (!onCancel || onCancel())) {
-            this.props.dispatch(hideDialog());
+            this._hide();
         }
     }
 
+    _onSubmit: (?string) => void;
+
     /**
-     * Submits this dialog. If the React <tt>Component</tt> prop
-     * <tt>onSubmit</tt> is defined, the function that is the value of the prop
-     * is invoked. If the function returns a <tt>thenable</tt>, then the
-     * resolution of the <tt>thenable</tt> is awaited. If the submission
+     * Submits this {@code Dialog}. If the React {@code Component} prop
+     * {@code onSubmit} is defined, the function that is the value of the prop
+     * is invoked. If the function returns a {@code thenable}, then the
+     * resolution of the {@code thenable} is awaited. If the submission
      * completes successfully, a redux action will be dispatched to hide this
      * dialog.
      *
-     * @private
-     * @param {string} value - The submitted value if any.
+     * @protected
+     * @param {string} [value] - The submitted value if any.
      * @returns {void}
      */
-    _onSubmit(value) {
+    _onSubmit(value: ?string) {
         const { okDisabled, onSubmit } = this.props;
 
         if (typeof okDisabled === 'undefined' || !okDisabled) {
@@ -125,8 +140,10 @@ export default class AbstractDialog extends Component {
         }
     }
 
+    _onSubmitFulfilled: () => void;
+
     /**
-     * Notifies this <tt>AbstractDialog</tt> that it has been submitted
+     * Notifies this {@code AbstractDialog} that it has been submitted
      * successfully. Dispatches a redux action to hide this dialog after it has
      * been submitted.
      *
@@ -136,11 +153,13 @@ export default class AbstractDialog extends Component {
     _onSubmitFulfilled() {
         this._mounted && this.setState({ submitting: false });
 
-        this.props.dispatch(hideDialog());
+        this._hide();
     }
 
+    _onSubmitRejected: () => void;
+
     /**
-     * Notifies this <tt>AbstractDialog</tt> that its submission has failed.
+     * Notifies this {@code AbstractDialog} that its submission has failed.
      *
      * @private
      * @returns {void}

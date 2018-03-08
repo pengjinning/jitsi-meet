@@ -21,6 +21,7 @@ const commands = {
     displayName: 'display-name',
     email: 'email',
     hangup: 'video-hangup',
+    submitFeedback: 'submit-feedback',
     toggleAudio: 'toggle-audio',
     toggleChat: 'toggle-chat',
     toggleContactList: 'toggle-contact-list',
@@ -34,9 +35,11 @@ const commands = {
  * events expected by jitsi-meet
  */
 const events = {
+    'avatar-changed': 'avatarChanged',
     'audio-availability-changed': 'audioAvailabilityChanged',
     'audio-mute-status-changed': 'audioMuteStatusChanged',
     'display-name-change': 'displayNameChange',
+    'feedback-submitted': 'feedbackSubmitted',
     'incoming-message': 'incomingMessage',
     'outgoing-message': 'outgoingMessage',
     'participant-joined': 'participantJoined',
@@ -45,7 +48,8 @@ const events = {
     'video-conference-joined': 'videoConferenceJoined',
     'video-conference-left': 'videoConferenceLeft',
     'video-availability-changed': 'videoAvailabilityChanged',
-    'video-mute-status-changed': 'videoMuteStatusChanged'
+    'video-mute-status-changed': 'videoMuteStatusChanged',
+    'screen-sharing-status-changed': 'screenSharingStatusChanged'
 };
 
 /**
@@ -87,8 +91,8 @@ function generateURL(domain, options = {}) {
     return urlObjectToString({
         ...options,
         url:
-            `${options.noSSL ? 'http' : 'https'}://${domain
-                }/#jitsi_meet_external_api_id=${id}`
+            `${options.noSSL ? 'http' : 'https'}://${
+                domain}/#jitsi_meet_external_api_id=${id}`
     });
 }
 
@@ -120,7 +124,8 @@ function parseArguments(args) {
             configOverwrite,
             interfaceConfigOverwrite,
             noSSL,
-            jwt
+            jwt,
+            onload
         ] = args;
 
         return {
@@ -131,7 +136,8 @@ function parseArguments(args) {
             configOverwrite,
             interfaceConfigOverwrite,
             noSSL,
-            jwt
+            jwt,
+            onload
         };
     case 'object': // new arguments format
         return args[0];
@@ -193,6 +199,8 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * used.
      * @param {string} [options.jwt] - The JWT token if needed by jitsi-meet for
      * authentication.
+     * @param {string} [options.onload] - The onload function that will listen
+     * for iframe onload event.
      */
     constructor(domain, ...args) {
         super();
@@ -204,7 +212,8 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             configOverwrite = {},
             interfaceConfigOverwrite = {},
             noSSL = false,
-            jwt = undefined
+            jwt = undefined,
+            onload = undefined
         } = parseArguments(args);
 
         this._parentNode = parentNode;
@@ -215,8 +224,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             noSSL,
             roomName
         });
-        this._baseUrl = `${noSSL ? 'http' : 'https'}://${domain}/`;
-        this._createIFrame(height, width);
+        this._createIFrame(height, width, onload);
         this._transport = new Transport({
             backend: new PostMessageTransportBackend({
                 postisOptions: {
@@ -225,7 +233,11 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
                 }
             })
         });
-        this._numberOfParticipants = 1;
+        this._isLargeVideoVisible = true;
+        this._numberOfParticipants = 0;
+        this._participants = {};
+        this._myUserID = undefined;
+        this._onStageParticipant = undefined;
         this._setupListeners();
         id++;
     }
@@ -237,11 +249,13 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * parseSizeParam for format details.
      * @param {number|string} width - The with of the iframe. Check
      * parseSizeParam for format details.
+     * @param {Function} onload - The function that will listen
+     * for onload event.
      * @returns {void}
      *
      * @private
      */
-    _createIFrame(height, width) {
+    _createIFrame(height, width, onload) {
         const frameName = `jitsiConferenceFrame${id}`;
 
         this._frame = document.createElement('iframe');
@@ -252,6 +266,13 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         this._setSize(height, width);
         this._frame.setAttribute('allowFullScreen', 'true');
         this._frame.style.border = 0;
+
+        if (onload) {
+            // waits for iframe resources to load
+            // and fires event when it is done
+            this._frame.onload = onload;
+        }
+
         this._frame = this._parentNode.appendChild(this._frame);
     }
 
@@ -261,9 +282,50 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * @returns {Array<string>}
      */
     _getAlwaysOnTopResources() {
+        const iframeWindow = this._frame.contentWindow;
+        const iframeDocument = iframeWindow.document;
+        let baseURL = '';
+        const base = iframeDocument.querySelector('base');
+
+        if (base && base.href) {
+            baseURL = base.href;
+        } else {
+            const { protocol, host } = iframeWindow.location;
+
+            baseURL = `${protocol}//${host}`;
+        }
+
         return ALWAYS_ON_TOP_FILENAMES.map(
-            filename => this._baseUrl + filename
+            filename => (new URL(filename, baseURL)).href
         );
+    }
+
+    /**
+     * Returns the id of the on stage participant.
+     *
+     * @returns {string} - The id of the on stage participant.
+     */
+    _getOnStageParticipant() {
+        return this._onStageParticipant;
+    }
+
+
+    /**
+     * Getter for the large video element in Jitsi Meet.
+     *
+     * @returns {HTMLElement|undefined} - The large video.
+     */
+    _getLargeVideo() {
+        const iframe = this.getIFrame();
+
+        if (!this._isLargeVideoVisible
+                || !iframe
+                || !iframe.contentWindow
+                || !iframe.contentWindow.document) {
+            return;
+        }
+
+        return iframe.contentWindow.document.getElementById('largeVideo');
     }
 
     /**
@@ -296,12 +358,58 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * @private
      */
     _setupListeners() {
-
         this._transport.on('event', ({ name, ...data }) => {
-            if (name === 'participant-joined') {
+            const userID = data.id;
+
+            switch (name) {
+            case 'video-conference-joined':
+                this._myUserID = userID;
+                this._participants[userID] = {
+                    avatarURL: data.avatarURL
+                };
+
+            // eslint-disable-next-line no-fallthrough
+            case 'participant-joined': {
+                this._participants[userID] = this._participants[userID] || {};
+                this._participants[userID].displayName = data.displayName;
+                this._participants[userID].formattedDisplayName
+                    = data.formattedDisplayName;
                 changeParticipantNumber(this, 1);
-            } else if (name === 'participant-left') {
+                break;
+            }
+            case 'participant-left':
                 changeParticipantNumber(this, -1);
+                delete this._participants[userID];
+                break;
+            case 'display-name-change': {
+                const user = this._participants[userID];
+
+                if (user) {
+                    user.displayName = data.displayname;
+                    user.formattedDisplayName = data.formattedDisplayName;
+                }
+                break;
+            }
+            case 'avatar-changed': {
+                const user = this._participants[userID];
+
+                if (user) {
+                    user.avatarURL = data.avatarURL;
+                }
+                break;
+            }
+            case 'on-stage-participant-changed':
+                this._onStageParticipant = userID;
+                this.emit('largeVideoChanged');
+                break;
+            case 'large-video-visibility-changed':
+                this._isLargeVideoVisible = data.isVisible;
+                this.emit('largeVideoChanged');
+                break;
+            case 'video-conference-left':
+                changeParticipantNumber(this, -1);
+                delete this._participants[this._myUserID];
+                break;
             }
 
             const eventName = events[name];
@@ -377,6 +485,12 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * The listener will receive object with the following structure:
      * {{
      * roomName: room //the room name of the conference
+     * }}
+     * screenSharingStatusChanged - receives event notifications about
+     * turning on/off the local user screen sharing.
+     * The listener will receive object with the following structure:
+     * {{
+     * on: on //whether screen sharing is on
      * }}
      * readyToClose - all hangup operations are completed and Jitsi Meet is
      * ready to be disposed.
@@ -473,6 +587,43 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         return this._transport.sendRequest({
             name: 'is-audio-muted'
         });
+    }
+
+    /**
+     * Returns the avatar URL of a participant.
+     *
+     * @param {string} participantId - The id of the participant.
+     * @returns {string} The avatar URL.
+     */
+    getAvatarURL(participantId) {
+        const { avatarURL } = this._participants[participantId] || {};
+
+        return avatarURL;
+    }
+
+    /**
+     * Returns the display name of a participant.
+     *
+     * @param {string} participantId - The id of the participant.
+     * @returns {string} The display name.
+     */
+    getDisplayName(participantId) {
+        const { displayName } = this._participants[participantId] || {};
+
+        return displayName;
+    }
+
+    /**
+     * Returns the formatted display name of a participant.
+     *
+     * @param {string} participantId - The id of the participant.
+     * @returns {string} The formatted display name.
+     */
+    _getFormattedDisplayName(participantId) {
+        const { formattedDisplayName }
+            = this._participants[participantId] || {};
+
+        return formattedDisplayName;
     }
 
     /**

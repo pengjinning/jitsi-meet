@@ -1,6 +1,4 @@
 .video-quality-dialog {
-    color: $modalTextColor;
-
     .hide-warning {
         height: 0;
         visibility: hidden;
@@ -12,7 +10,6 @@
 
     .video-quality-dialog-contents {
         align-items: center;
-        color: $modalTextColor;
         display: flex;
         flex-direction: column;
         padding: 10px;
@@ -29,7 +26,7 @@
             @mixin sliderTrackStyles() {
                 height: 15px;
                 border-radius: 10px;
-                background: black;
+                background: rgb(14, 22, 36);
             }
 
             &::-ms-track {
@@ -79,7 +76,6 @@
             transform: translate(-50%, 0%);
 
             &::before {
-                background: rgb(140, 156, 189);
                 content: '';
                 border-radius: 50%;
                 left: 0;
@@ -94,10 +90,10 @@
         }
 
         .video-quality-dialog-label-container.active {
-            color: $toolbarToggleBackground;
+            color: $videoQualityActive;
 
             &::before {
-                background: $toolbarToggleBackground;
+                background: $videoQualityActive;
                 height: 12px;
                 top: -19px;
                 width: 12px;
@@ -113,30 +109,54 @@
             word-spacing: unset;
         }
     }
+
+    &.video-not-supported {
+        .video-quality-dialog-labels {
+            color: gray;
+        }
+
+        .video-quality-dialog-slider {
+            @mixin sliderTrackDisabledStyles() {
+                background: rgba(14, 22, 36, 0.1);
+            }
+
+            &::-ms-track {
+                @include sliderTrackDisabledStyles();
+            }
+
+            &::-moz-range-track {
+                @include sliderTrackDisabledStyles();
+            }
+
+            &::-webkit-slider-runnable-track {
+                @include sliderTrackDisabledStyles();
+            }
+        }
+    }
 }
 
 .video-state-indicator {
     background: $videoStateIndicatorBackground;
-    color: $videoStateIndicatorColor;
     cursor: default;
     font-size: 13px;
-    height: 40px;
+    height: $videoStateIndicatorSize;
     line-height: 20px;
     text-align: left;
-    min-width: 40px;
+    min-width: $videoStateIndicatorSize;
     border-radius: 50%;
     position: absolute;
     box-sizing: border-box;
 
     i {
-        cursor: pointer;
+        line-height: $videoStateIndicatorSize;
     }
 
     /**
      * Give the label padding so it has more volume and can be easily clicked.
      */
     .video-quality-label-status {
-        padding: 10px 5px;
+        line-height: $videoStateIndicatorSize;
+        min-width: $videoStateIndicatorSize;
         text-align: center;
     }
 }

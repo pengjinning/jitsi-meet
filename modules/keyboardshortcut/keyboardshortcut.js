@@ -1,77 +1,30 @@
-/* global APP, $, JitsiMeetJS, interfaceConfig */
+/* global APP, $, interfaceConfig */
 
 import { toggleDialog } from '../../react/features/base/dialog';
+import {
+    ACTION_SHORTCUT_PRESSED as PRESSED,
+    ACTION_SHORTCUT_RELEASED as RELEASED,
+    createShortcutEvent,
+    sendAnalytics
+} from '../../react/features/analytics';
+import { KeyboardShortcutsDialog }
+    from '../../react/features/keyboard-shortcuts';
 import { SpeakerStats } from '../../react/features/speaker-stats';
 
-/**
- * The reference to the shortcut dialogs when opened.
- */
-let keyboardShortcutDialog = null;
-
-/**
- * Initialise global shortcuts.
- * Global shortcuts are shortcuts for features that don't have a button or
- * link associated with the action. In other words they represent actions
- * triggered _only_ with a shortcut.
- */
-function initGlobalShortcuts() {
-    KeyboardShortcut.registerShortcut("ESCAPE", null, function() {
-        showKeyboardShortcutsPanel(false);
-    });
-
-    KeyboardShortcut.registerShortcut("?", null, function() {
-        JitsiMeetJS.analytics.sendEvent("shortcut.shortcut.help");
-        showKeyboardShortcutsPanel(true);
-    }, "keyboardShortcuts.toggleShortcuts");
-
-    // register SPACE shortcut in two steps to insure visibility of help message
-    KeyboardShortcut.registerShortcut(" ", null, function() {
-        JitsiMeetJS.analytics.sendEvent("shortcut.talk.clicked");
-        APP.conference.muteAudio(true);
-    });
-    KeyboardShortcut._addShortcutToHelp("SPACE","keyboardShortcuts.pushToTalk");
-
-    if(!interfaceConfig.filmStripOnly) {
-        KeyboardShortcut.registerShortcut("T", null, () => {
-            JitsiMeetJS.analytics.sendEvent("shortcut.speakerStats.clicked");
-            APP.store.dispatch(toggleDialog(SpeakerStats, {
-                conference: APP.conference
-            }));
-        }, "keyboardShortcuts.showSpeakerStats");
-    }
-
-    /**
-     * FIXME: Currently focus keys are directly implemented below in onkeyup.
-     * They should be moved to the SmallVideo instead.
-     */
-    KeyboardShortcut._addShortcutToHelp("0", "keyboardShortcuts.focusLocal");
-    KeyboardShortcut._addShortcutToHelp("1-9", "keyboardShortcuts.focusRemote");
-}
-
-/**
- * Shows or hides the keyboard shortcuts dialog.
- * @param {boolean} show whether to show or hide the dialog
- */
-function showKeyboardShortcutsPanel(show) {
-    if (show
-            && !APP.UI.messageHandler.isDialogOpened()
-            && keyboardShortcutDialog === null) {
-        let msg = $('#keyboard-shortcuts').html();
-        let buttons = { Close: true };
-
-        keyboardShortcutDialog = APP.UI.messageHandler.openDialog(
-            'keyboardShortcuts.keyboardShortcuts', msg, true, buttons);
-    } else if (keyboardShortcutDialog !== null) {
-        keyboardShortcutDialog.close();
-        keyboardShortcutDialog = null;
-    }
-}
+const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
  * Map of shortcuts. When a shortcut is registered it enters the mapping.
  * @type {{}}
  */
-let _shortcuts = {};
+const _shortcuts = {};
+
+/**
+ * Map of registered keyboard keys and translation keys describing the
+ * action performed by the key.
+ * @type {Map}
+ */
+const _shortcutsHelp = new Map();
 
 /**
  * True if the keyboard shortcuts are enabled and false if not.
@@ -83,43 +36,47 @@ let enabled = true;
  * Maps keycode to character, id of popover for given function and function.
  */
 const KeyboardShortcut = {
-    init: function () {
-        initGlobalShortcuts();
+    init() {
+        this._initGlobalShortcuts();
 
-        var self = this;
-        window.onkeyup = function(e) {
-            if(!enabled) {
+        window.onkeyup = e => {
+            if (!enabled) {
                 return;
             }
-            var key = self._getKeyboardKey(e).toUpperCase();
-            var num = parseInt(key, 10);
-            if(!($(":focus").is("input[type=text]") ||
-                $(":focus").is("input[type=password]") ||
-                $(":focus").is("textarea"))) {
+            const key = this._getKeyboardKey(e).toUpperCase();
+            const num = parseInt(key, 10);
+
+            if (!($(':focus').is('input[type=text]')
+                || $(':focus').is('input[type=password]')
+                || $(':focus').is('textarea'))) {
                 if (_shortcuts.hasOwnProperty(key)) {
                     _shortcuts[key].function(e);
-                }
-                else if (!isNaN(num) && num >= 0 && num <= 9) {
+                } else if (!isNaN(num) && num >= 0 && num <= 9) {
                     APP.UI.clickOnVideo(num);
                 }
-            //esc while the smileys are visible hides them
-            } else if (key === "ESCAPE" &&
-                $('#smileysContainer').is(':visible')) {
+
+            // esc while the smileys are visible hides them
+            } else if (key === 'ESCAPE'
+                && $('#smileysContainer').is(':visible')) {
                 APP.UI.toggleSmileys();
             }
         };
 
-        window.onkeydown = function(e) {
-            if(!enabled) {
+        window.onkeydown = e => {
+            if (!enabled) {
                 return;
             }
-            if(!($(":focus").is("input[type=text]") ||
-                $(":focus").is("input[type=password]") ||
-                $(":focus").is("textarea"))) {
-                var key = self._getKeyboardKey(e).toUpperCase();
-                if(key === " ") {
-                    if(APP.conference.isLocalAudioMuted())
+            if (!($(':focus').is('input[type=text]')
+                || $(':focus').is('input[type=password]')
+                || $(':focus').is('textarea'))) {
+                if (this._getKeyboardKey(e).toUpperCase() === ' ') {
+                    if (APP.conference.isLocalAudioMuted()) {
+                        sendAnalytics(createShortcutEvent(
+                            'push.to.talk',
+                            PRESSED));
+                        logger.log('Talk shortcut pressed');
                         APP.conference.muteAudio(false);
+                    }
                 }
             }
         };
@@ -129,7 +86,7 @@ const KeyboardShortcut = {
      * Enables/Disables the keyboard shortcuts.
      * @param {boolean} value - the new value.
      */
-    enable: function (value) {
+    enable(value) {
         enabled = value;
     },
 
@@ -137,25 +94,27 @@ const KeyboardShortcut = {
      * Registers a new shortcut.
      *
      * @param shortcutChar the shortcut character triggering the action
-     * @param shortcutAttr the "shortcut" html element attribute mappring an
+     * @param shortcutAttr the "shortcut" html element attribute mapping an
      * element to this shortcut and used to show the shortcut character on the
      * element tooltip
      * @param exec the function to be executed when the shortcut is pressed
      * @param helpDescription the description of the shortcut that would appear
      * in the help menu
      */
-    registerShortcut: function( shortcutChar,
-                                shortcutAttr,
-                                exec,
-                                helpDescription) {
+    registerShortcut(// eslint-disable-line max-params
+            shortcutChar,
+            shortcutAttr,
+            exec,
+            helpDescription) {
         _shortcuts[shortcutChar] = {
             character: shortcutChar,
-            shortcutAttr: shortcutAttr,
+            shortcutAttr,
             function: exec
         };
 
-        if (helpDescription)
+        if (helpDescription) {
             this._addShortcutToHelp(shortcutChar, helpDescription);
+        }
     },
 
     /**
@@ -164,58 +123,38 @@ const KeyboardShortcut = {
      * @param shortcutChar unregisters the given shortcut, which means it will
      * no longer be usable
      */
-    unregisterShortcut: function(shortcutChar) {
+    unregisterShortcut(shortcutChar) {
         _shortcuts.remove(shortcutChar);
-
-        this._removeShortcutFromHelp(shortcutChar);
+        _shortcutsHelp.delete(shortcutChar);
     },
 
-    /**
-     * Returns the tooltip string for the given shortcut attribute.
-     *
-     * @param shortcutAttr indicates the popover associated with the shortcut
-     * @returns {string} the tooltip string to add to the given shortcut popover
-     * or an empty string if the shortcutAttr is null, an empty string or not
-     * found in the shortcut mapping
-     */
-    getShortcutTooltip: function (shortcutAttr) {
-        if (typeof shortcutAttr === "string" && shortcutAttr.length > 0) {
-            for (var key in _shortcuts) {
-                if (_shortcuts.hasOwnProperty(key)
-                    && _shortcuts[key].shortcutAttr
-                    && _shortcuts[key].shortcutAttr === shortcutAttr) {
-                    return " (" + _shortcuts[key].character + ")";
-                }
-            }
-        }
-
-        return "";
-    },
     /**
      * @param e a KeyboardEvent
      * @returns {string} e.key or something close if not supported
      */
-    _getKeyboardKey: function (e) {
-        if (typeof e.key === "string") {
+    _getKeyboardKey(e) {
+        if (typeof e.key === 'string') {
             return e.key;
         }
-        if (e.type === "keypress" && (
-                (e.which >= 32 && e.which <= 126) ||
-                (e.which >= 160 && e.which <= 255) )) {
+        if (e.type === 'keypress'
+                && ((e.which >= 32 && e.which <= 126)
+                    || (e.which >= 160 && e.which <= 255))) {
             return String.fromCharCode(e.which);
         }
+
         // try to fallback (0-9A-Za-z and QWERTY keyboard)
         switch (e.which) {
         case 27:
-            return "Escape";
+            return 'Escape';
         case 191:
-            return e.shiftKey ? "?" : "/";
+            return e.shiftKey ? '?' : '/';
         }
-        if (e.shiftKey || e.type === "keypress") {
+        if (e.shiftKey || e.type === 'keypress') {
             return String.fromCharCode(e.which);
-        } else {
-            return String.fromCharCode(e.which).toLowerCase();
         }
+
+        return String.fromCharCode(e.which).toLowerCase();
+
     },
 
     /**
@@ -225,51 +164,48 @@ const KeyboardShortcut = {
      * @param shortcutDescriptionKey the description of the shortcut
      * @private
      */
-    _addShortcutToHelp: function (shortcutChar, shortcutDescriptionKey) {
-
-        let listElement = document.createElement("li");
-        let itemClass = 'shortcuts-list__item';
-        listElement.className = itemClass;
-        listElement.id = shortcutChar;
-
-        let spanElement = document.createElement("span");
-        spanElement.className = "item-action";
-
-        let kbdElement = document.createElement("kbd");
-        let classes = 'aui-label regular-key';
-        kbdElement.className = classes;
-        kbdElement.innerHTML = shortcutChar;
-        spanElement.appendChild(kbdElement);
-
-        let descriptionElement = document.createElement("span");
-        let descriptionClass = "shortcuts-list__description";
-        descriptionElement.className = descriptionClass;
-        descriptionElement.setAttribute("data-i18n", shortcutDescriptionKey);
-        APP.translation.translateElement($(descriptionElement));
-
-        listElement.appendChild(spanElement);
-        listElement.appendChild(descriptionElement);
-
-        let parentListElement
-            = document.getElementById("keyboard-shortcuts-list");
-
-        if (parentListElement)
-            parentListElement.appendChild(listElement);
+    _addShortcutToHelp(shortcutChar, shortcutDescriptionKey) {
+        _shortcutsHelp.set(shortcutChar, shortcutDescriptionKey);
     },
 
     /**
-     * Removes the list element corresponding to the given shortcut from the
-     * help dialog
-     * @private
+     * Initialise global shortcuts.
+     * Global shortcuts are shortcuts for features that don't have a button or
+     * link associated with the action. In other words they represent actions
+     * triggered _only_ with a shortcut.
      */
-    _removeShortcutFromHelp: function (shortcutChar) {
-        var parentListElement
-            = document.getElementById("keyboard-shortcuts-list");
+    _initGlobalShortcuts() {
+        this.registerShortcut('?', null, () => {
+            sendAnalytics(createShortcutEvent('help'));
+            APP.store.dispatch(toggleDialog(KeyboardShortcutsDialog, {
+                shortcutDescriptions: _shortcutsHelp
+            }));
+        }, 'keyboardShortcuts.toggleShortcuts');
 
-        var shortcutElement = document.getElementById(shortcutChar);
+        // register SPACE shortcut in two steps to insure visibility of help
+        // message
+        this.registerShortcut(' ', null, () => {
+            sendAnalytics(createShortcutEvent('push.to.talk', RELEASED));
+            logger.log('Talk shortcut released');
+            APP.conference.muteAudio(true);
+        });
+        this._addShortcutToHelp('SPACE', 'keyboardShortcuts.pushToTalk');
 
-        if (shortcutElement)
-            parentListElement.removeChild(shortcutElement);
+        if (!interfaceConfig.filmStripOnly) {
+            this.registerShortcut('T', null, () => {
+                sendAnalytics(createShortcutEvent('speaker.stats'));
+                APP.store.dispatch(toggleDialog(SpeakerStats, {
+                    conference: APP.conference
+                }));
+            }, 'keyboardShortcuts.showSpeakerStats');
+        }
+
+        /**
+         * FIXME: Currently focus keys are directly implemented below in
+         * onkeyup. They should be moved to the SmallVideo instead.
+         */
+        this._addShortcutToHelp('0', 'keyboardShortcuts.focusLocal');
+        this._addShortcutToHelp('1-9', 'keyboardShortcuts.focusRemote');
     }
 };
 

@@ -1,4 +1,5 @@
 import InlineDialog from '@atlaskit/inline-dialog';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 /**
@@ -52,35 +53,40 @@ class Popover extends Component {
         /**
          * A child React Element to use as the trigger for showing the dialog.
          */
-        children: React.PropTypes.object,
+        children: PropTypes.object,
 
         /**
          * Additional CSS classnames to apply to the root of the {@code Popover}
          * component.
          */
-        className: React.PropTypes.string,
+        className: PropTypes.string,
 
         /**
          * The ReactElement to display within the dialog.
          */
-        content: React.PropTypes.object,
+        content: PropTypes.object,
+
+        /**
+         * Whether displaying of the popover should be prevented.
+         */
+        disablePopover: PropTypes.bool,
 
         /**
          * An id attribute to apply to the root of the {@code Popover}
          * component.
          */
-        id: React.PropTypes.string,
+        id: PropTypes.string,
 
         /**
          * Callback to invoke when the popover has opened.
          */
-        onPopoverOpen: React.PropTypes.func,
+        onPopoverOpen: PropTypes.func,
 
         /**
          * From which side of the dialog trigger the dialog should display. The
          * value will be passed to {@code InlineDialog}.
          */
-        position: React.PropTypes.string
+        position: PropTypes.string
     };
 
     /**
@@ -147,12 +153,13 @@ class Popover extends Component {
      * @returns {void}
      */
     _onShowDialog() {
-        this.setState({ showDialog: true });
+        if (!this.props.disablePopover) {
+            this.setState({ showDialog: true });
 
-        if (this.props.onPopoverOpen) {
-            this.props.onPopoverOpen();
+            if (this.props.onPopoverOpen) {
+                this.props.onPopoverOpen();
+            }
         }
-
     }
 
     /**

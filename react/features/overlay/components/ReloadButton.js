@@ -1,3 +1,6 @@
+/* @flow */
+
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
@@ -9,7 +12,7 @@ import { _reloadNow } from '../actions';
  * Implements a React Component for button for the overlays that will reload
  * the page.
  */
-class ReloadButton extends Component {
+class ReloadButton extends Component<*> {
     /**
      * PageReloadOverlay component's property types.
      *
@@ -21,7 +24,7 @@ class ReloadButton extends Component {
          *
          * @type {Function}
          */
-        _reloadNow: React.PropTypes.func,
+        _reloadNow: PropTypes.func,
 
         /**
          * The function to translate human-readable text.
@@ -29,14 +32,14 @@ class ReloadButton extends Component {
          * @public
          * @type {Function}
          */
-        t: React.PropTypes.func,
+        t: PropTypes.func,
 
         /**
          * The translation key for the text in the button.
          *
          * @type {string}
          */
-        textKey: React.PropTypes.string.isRequired
+        textKey: PropTypes.string.isRequired
     };
 
     /**

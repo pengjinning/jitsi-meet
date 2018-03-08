@@ -3,6 +3,7 @@
 **/
 
 .popupmenu {
+    min-width: 75px;
     text-align: left;
     padding: 0;
     white-space: nowrap;
@@ -19,7 +20,6 @@
     // Link Appearance
     &__link,
     &__contents {
-        color: $modalTextColor;
         display: block;
         box-sizing: border-box;
         text-decoration: none;
@@ -30,7 +30,6 @@
         padding: 0 5px;
 
         &.disabled {
-            color: gray !important;
             pointer-events: none;
         }
     }

@@ -1,5 +1,6 @@
 /* @flow */
 
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 import { translate } from '../../base/i18n';
@@ -21,7 +22,7 @@ const _SNS = 'unsupported-desktop-browser';
  *
  * @class UnsupportedDesktopBrowser
  */
-class UnsupportedDesktopBrowser extends Component {
+class UnsupportedDesktopBrowser extends Component<*> {
     /**
      * UnsupportedDesktopBrowser component's property types.
      *
@@ -34,7 +35,7 @@ class UnsupportedDesktopBrowser extends Component {
          * @public
          * @type {Function}
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**

@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import React from 'react';
 import { TouchableHighlight } from 'react-native';
 import { connect } from 'react-redux';
@@ -23,7 +24,7 @@ class ToolbarButton extends AbstractToolbarButton {
         /**
          * Indicates whether this {@code ToolbarButton} is disabled.
          */
-        disabled: React.PropTypes.bool
+        disabled: PropTypes.bool
     };
 
     /**
@@ -37,6 +38,8 @@ class ToolbarButton extends AbstractToolbarButton {
     _renderButton(children) {
         const props = {};
 
+        'accessibilityLabel' in this.props
+            && (props.accessibilityLabel = this.props.accessibilityLabel);
         'disabled' in this.props && (props.disabled = this.props.disabled);
         'onClick' in this.props && (props.onPress = this._onClick);
         'style' in this.props && (props.style = this.props.style);
@@ -46,8 +49,9 @@ class ToolbarButton extends AbstractToolbarButton {
         return React.createElement(TouchableHighlight, props, children);
     }
 
-    // eslint-disable-next-line valid-jsdoc
     /**
+     * Renders the icon of this {@code ToolbarButton}.
+     *
      * @inheritdoc
      */
     _renderIcon() {

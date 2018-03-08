@@ -2,7 +2,7 @@
 
 import jqueryI18next from 'jquery-i18next';
 
-import { DEFAULT_LANGUAGE, i18next } from '../../react/features/base/i18n';
+import { i18next } from '../../react/features/base/i18n';
 
 declare var $: Function;
 
@@ -16,11 +16,13 @@ function _onI18nInitialized() {
     $('[data-i18n]').localize();
 }
 
+/**
+ *
+ */
 class Translation {
-    addLanguageChangedListener(listener: Function) {
-        i18next.on('languageChanged', listener);
-    }
-
+    /**
+     *
+     */
     generateTranslationHTML(key: string, options: Object) {
         const optAttr
             = options ? ` data-i18n-options='${JSON.stringify(options)}'` : '';
@@ -31,23 +33,24 @@ class Translation {
         return `<span data-i18n="${key}"${optAttr}>${text}</span>`;
     }
 
-    getCurrentLanguage() {
-        return i18next.lng();
-    }
-
+    /**
+     *
+     */
     init() {
         jqueryI18next.init(i18next, $, { useOptionsAttr: true });
 
-        if (i18next.isInitialized)
+        if (i18next.isInitialized) {
             _onI18nInitialized();
-        else
+        } else {
             i18next.on('initialized', _onI18nInitialized);
+        }
+
+        i18next.on('languageChanged', _onI18nInitialized);
     }
 
-    setLanguage(language: string = DEFAULT_LANGUAGE) {
-        i18next.setLng(language, {}, _onI18nInitialized);
-    }
-
+    /**
+     *
+     */
     translateElement(selector: Object, options: Object) {
         // XXX i18next expects undefined if options are missing.
         selector.localize(options ? options : undefined);

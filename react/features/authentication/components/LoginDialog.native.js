@@ -64,12 +64,13 @@ class LoginDialog extends Component {
         /**
          * The error which occurred during login/authentication.
          */
-        _error: PropTypes.string,
+        _error: PropTypes.object,
 
         /**
-         * Any extra details about the error provided by lib-jitsi-meet.
+         * The progress in the floating range between 0 and 1 of the
+         * authenticating and upgrading the role of the local participant/user.
          */
-        _errorDetails: PropTypes.string,
+        _progress: PropTypes.number,
 
         /**
          * Redux store dispatch method.
@@ -113,18 +114,37 @@ class LoginDialog extends Component {
         const {
             _connecting: connecting,
             _error: error,
-            _errorDetails: errorDetails,
+            _progress: progress,
             t
         } = this.props;
 
-        let messageKey = '';
-        const messageOptions = {};
+        let messageKey;
+        let messageOptions;
 
-        if (error === JitsiConnectionErrors.PASSWORD_REQUIRED) {
-            messageKey = 'dialog.incorrectPassword';
+        if (progress && progress < 1) {
+            messageKey = 'connection.FETCH_SESSION_ID';
         } else if (error) {
-            messageKey = 'dialog.connectErrorWithMsg';
-            messageOptions.msg = `${error} ${errorDetails}`;
+            const { name } = error;
+
+            if (name === JitsiConnectionErrors.PASSWORD_REQUIRED) {
+                // Show a message that the credentials are incorrect only if the
+                // credentials which have caused the connection to fail are the
+                // ones which the user sees.
+                const { credentials } = error;
+
+                if (credentials
+                        && credentials.jid
+                            === toJid(
+                                this.state.username,
+                                this.props._configHosts)
+                        && credentials.password === this.state.password) {
+                    messageKey = 'dialog.incorrectPassword';
+                }
+            } else if (name) {
+                messageKey = 'dialog.connectErrorWithMsg';
+                messageOptions || (messageOptions = {});
+                messageOptions.msg = `${name} ${error.message}`;
+            }
         }
 
         return (
@@ -135,20 +155,22 @@ class LoginDialog extends Component {
                 titleKey = 'dialog.passwordRequired'>
                 <View style = { styles.loginDialog }>
                     <TextInput
+                        autoCapitalize = { 'none' }
+                        autoCorrect = { false }
                         onChangeText = { this._onUsernameChange }
                         placeholder = { 'user@domain.com' }
-                        style = { styles.loginDialogTextInput }
+                        style = { styles.dialogTextInput }
                         value = { this.state.username } />
                     <TextInput
                         onChangeText = { this._onPasswordChange }
                         placeholder = { t('dialog.userPassword') }
                         secureTextEntry = { true }
-                        style = { styles.loginDialogTextInput }
+                        style = { styles.dialogTextInput }
                         value = { this.state.password } />
-                    <Text style = { styles.loginDialogText }>
+                    <Text style = { styles.dialogText }>
                         {
-                            error
-                                ? t(messageKey, messageOptions)
+                            messageKey
+                                ? t(messageKey, messageOptions || {})
                                 : connecting
                                     ? t('connection.CONNECTING')
                                     : ''
@@ -203,18 +225,20 @@ class LoginDialog extends Component {
      * @returns {void}
      */
     _onLogin() {
-        const { _conference: conference } = this.props;
-        const { username, password } = this.state;
+        const { _conference: conference, dispatch } = this.props;
+        const { password, username } = this.state;
         const jid = toJid(username, this.props._configHosts);
+        let r;
 
         // If there's a conference it means that the connection has succeeded,
         // but authentication is required in order to join the room.
         if (conference) {
-            this.props.dispatch(
-                authenticateAndUpgradeRole(jid, password, conference));
+            r = dispatch(authenticateAndUpgradeRole(jid, password, conference));
         } else {
-            this.props.dispatch(connect(jid, password));
+            r = dispatch(connect(jid, password));
         }
+
+        return r;
     }
 }
 
@@ -228,42 +252,29 @@ class LoginDialog extends Component {
  *     _conference: JitsiConference,
  *     _configHosts: Object,
  *     _connecting: boolean,
- *     _error: string,
- *     _errorDetails: string
+ *     _error: Object,
+ *     _progress: number
  * }}
  */
 function _mapStateToProps(state) {
     const {
-        upgradeRoleError,
-        upgradeRoleInProgress
+        error: authenticateAndUpgradeRoleError,
+        progress,
+        thenableWithCancel
     } = state['features/authentication'];
     const { authRequired } = state['features/base/conference'];
     const { hosts: configHosts } = state['features/base/config'];
     const {
         connecting,
-        error: connectionError,
-        errorMessage: connectionErrorMessage
+        error: connectionError
     } = state['features/base/connection'];
-
-    let error;
-    let errorDetails;
-
-    if (connectionError) {
-        error = connectionError;
-        errorDetails = connectionErrorMessage;
-    } else if (upgradeRoleError) {
-        error
-            = upgradeRoleError.connectionError
-                || upgradeRoleError.authenticationError;
-        errorDetails = upgradeRoleError.message;
-    }
 
     return {
         _conference: authRequired,
         _configHosts: configHosts,
-        _connecting: Boolean(connecting) || Boolean(upgradeRoleInProgress),
-        _error: error,
-        _errorDetails: errorDetails
+        _connecting: Boolean(connecting) || Boolean(thenableWithCancel),
+        _error: connectionError || authenticateAndUpgradeRoleError,
+        _progress: progress
     };
 }
 

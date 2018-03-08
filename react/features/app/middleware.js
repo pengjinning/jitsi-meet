@@ -1,3 +1,5 @@
+// @flow
+
 import { SET_ROOM } from '../base/conference';
 import {
     CONNECTION_ESTABLISHED,
@@ -5,6 +7,8 @@ import {
     SET_LOCATION_URL
 } from '../base/connection';
 import { MiddlewareRegistry } from '../base/redux';
+
+import { _getRouteToRender } from './functions';
 
 MiddlewareRegistry.register(store => next => action => {
     switch (action.type) {
@@ -72,8 +76,8 @@ function _connectionEstablished(store, next, action) {
  */
 function _navigate({ getState }) {
     const state = getState();
-    const { app, getRouteToRender } = state['features/app'];
-    const routeToRender = getRouteToRender && getRouteToRender(state);
+    const { app } = state['features/app'];
+    const routeToRender = _getRouteToRender(state);
 
     return app._navigate(routeToRender);
 }

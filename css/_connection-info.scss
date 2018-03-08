@@ -1,7 +1,6 @@
 %connection-info {
     font-size: 12px;
     font-weight: 400;
-    color: $modalTextColor;
 
     td {
         padding: 2px 0;
@@ -34,13 +33,16 @@
     &__download
     {
         @extend .connection-info__icon;
-        color: $downloadConnectionIconColor;
+    }
+
+    &__status
+    {
+        font-weight: bold;
     }
 
     &__upload
     {
         @extend .connection-info__icon;
-        color: $uploadConnectionIconColor;
     }
 
     .showmore {

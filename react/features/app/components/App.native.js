@@ -1,16 +1,23 @@
 /* global __DEV__ */
 
+import PropTypes from 'prop-types';
 import React from 'react';
 import { Linking } from 'react-native';
 
 import '../../analytics';
 import '../../authentication';
 import { Platform } from '../../base/react';
+import {
+    AspectRatioDetector,
+    ReducedUIDetector
+} from '../../base/responsive-ui';
 import '../../mobile/audio-mode';
 import '../../mobile/background';
+import '../../mobile/callkit';
 import '../../mobile/external-api';
 import '../../mobile/full-screen';
 import '../../mobile/permissions';
+import '../../mobile/picture-in-picture';
 import '../../mobile/proximity';
 import '../../mobile/wake-lock';
 
@@ -31,11 +38,18 @@ export class App extends AbstractApp {
         ...AbstractApp.propTypes,
 
         /**
+         * Whether Picture-in-Picture is enabled. If {@code true}, a toolbar
+         * button is rendered in the {@link Conference} view to afford entering
+         * Picture-in-Picture.
+         */
+        pictureInPictureEnabled: PropTypes.bool,
+
+        /**
          * Whether the Welcome page is enabled. If {@code true}, the Welcome
          * page is rendered when the {@link App} is not at a location (URL)
          * identifying a Jitsi Meet conference/room.
          */
-        welcomePageEnabled: React.PropTypes.bool
+        welcomePageEnabled: PropTypes.bool
     };
 
     /**
@@ -83,6 +97,22 @@ export class App extends AbstractApp {
         Linking.removeEventListener('url', this._onLinkingURL);
 
         super.componentWillUnmount();
+    }
+
+    /**
+     * Injects {@link AspectRatioDetector} in order to detect the aspect ratio
+     * of this {@code App}'s user interface and afford {@link AspectRatioAware}.
+     *
+     * @override
+     */
+    _createElement(component, props) {
+        return (
+            <AspectRatioDetector>
+                <ReducedUIDetector>
+                    { super._createElement(component, props) }
+                </ReducedUIDetector>
+            </AspectRatioDetector>
+        );
     }
 
     /**

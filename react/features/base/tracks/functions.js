@@ -1,6 +1,7 @@
 /* global APP */
 
-import JitsiMeetJS, { JitsiTrackEvents } from '../lib-jitsi-meet';
+import JitsiMeetJS, { JitsiTrackErrors, JitsiTrackEvents }
+    from '../lib-jitsi-meet';
 import { MEDIA_TYPE } from '../media';
 
 const logger = require('jitsi-meet-logger').getLogger(__filename);
@@ -45,6 +46,8 @@ export function createLocalTracksF(
     }
 
     const {
+        constraints,
+        desktopSharingFrameRate,
         firefox_fake_device, // eslint-disable-line camelcase
         resolution
     } = store.getState()['features/base/config'];
@@ -53,8 +56,10 @@ export function createLocalTracksF(
         JitsiMeetJS.createLocalTracks(
             {
                 cameraDeviceId,
+                constraints,
                 desktopSharingExtensionExternalInstallation:
                     options.desktopSharingExtensionExternalInstallation,
+                desktopSharingFrameRate,
                 desktopSharingSources: options.desktopSharingSources,
 
                 // Copy array to avoid mutations inside library.
@@ -73,7 +78,8 @@ export function createLocalTracksF(
                 tracks.forEach(track =>
                     track.on(
                         JitsiTrackEvents.NO_DATA_FROM_SOURCE,
-                        APP.UI.showTrackNotWorkingDialog.bind(null, track)));
+                        APP.UI.showTrackNotWorkingDialog.bind(
+                            null, track.isAudioTrack())));
             }
 
             return tracks;
@@ -103,7 +109,26 @@ export function getLocalAudioTrack(tracks) {
  * @returns {(Track|undefined)}
  */
 export function getLocalTrack(tracks, mediaType) {
-    return tracks.find(t => t.local && t.mediaType === mediaType);
+    return getLocalTracks(tracks).find(t => t.mediaType === mediaType);
+}
+
+/**
+ * Returns an array containing the local tracks with a (valid)
+ * {@code JitsiTrack}.
+ *
+ * @param {Track[]} tracks - An array containing all local tracks.
+ * @returns {Track[]}
+ */
+export function getLocalTracks(tracks) {
+
+    // XXX A local track is considered ready only once it has its `jitsiTrack`
+    // property set by the `TRACK_ADDED` action. Until then there is a stub
+    // added just before the `getUserMedia` call with a cancellable
+    // `gumInProgress` property which then can be used to destroy the track that
+    // has not yet been added to the redux store. Once GUM is cancelled, it will
+    // never make it to the store nor there will be any
+    // `TRACK_ADDED`/`TRACK_REMOVED` actions dispatched for it.
+    return tracks.filter(t => t.local && t.jitsiTrack);
 }
 
 /**
@@ -172,14 +197,14 @@ export function isLocalTrackMuted(tracks, mediaType) {
 }
 
 /**
- * Mutes or unmutes a specific <tt>JitsiLocalTrack</tt>. If the muted state of
- * the specified <tt>track</tt> is already in accord with the specified
- * <tt>muted</tt> value, then does nothing.
+ * Mutes or unmutes a specific {@code JitsiLocalTrack}. If the muted state of
+ * the specified {@code track} is already in accord with the specified
+ * {@code muted} value, then does nothing.
  *
- * @param {JitsiLocalTrack} track - The <tt>JitsiLocalTrack</tt> to mute or
+ * @param {JitsiLocalTrack} track - The {@code JitsiLocalTrack} to mute or
  * unmute.
- * @param {boolean} muted - If the specified <tt>track</tt> is to be muted, then
- * <tt>true</tt>; otherwise, <tt>false</tt>.
+ * @param {boolean} muted - If the specified {@code track} is to be muted, then
+ * {@code true}; otherwise, {@code false}.
  * @returns {Promise}
  */
 export function setTrackMuted(track, muted) {
@@ -192,8 +217,10 @@ export function setTrackMuted(track, muted) {
     const f = muted ? 'mute' : 'unmute';
 
     return track[f]().catch(error => {
-
-        // FIXME emit mute failed, so that the app can show error dialog
-        console.error(`set track ${f} failed`, error);
+        // Track might be already disposed so ignore such an error.
+        if (error.name !== JitsiTrackErrors.TRACK_IS_DISPOSED) {
+            // FIXME Emit mute failed, so that the app can show error dialog.
+            console.error(`set track ${f} failed`, error);
+        }
     });
 }

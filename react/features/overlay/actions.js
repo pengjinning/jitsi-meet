@@ -1,4 +1,5 @@
-import { reload, replace } from '../../../modules/util/helpers';
+import { appNavigate, reloadWithStoredParams } from '../app';
+import { toURLString } from '../base/util';
 
 import {
     MEDIA_PERMISSION_PROMPT_VISIBILITY_CHANGED,
@@ -40,12 +41,10 @@ export function _reloadNow() {
 
         logger.info(`Reloading the conference using URL: ${locationURL}`);
 
-        // In an iframe reload with the reload() utility because the replace()
-        // utility does not work on an iframe.
-        if (window.self === window.top) {
-            replace(locationURL);
+        if (navigator.product === 'ReactNative') {
+            dispatch(appNavigate(toURLString(locationURL)));
         } else {
-            reload();
+            dispatch(reloadWithStoredParams());
         }
     };
 }

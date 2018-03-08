@@ -1,5 +1,6 @@
 import AKDropdownMenu from '@atlaskit/dropdown-menu';
-import ExpandIcon from '@atlaskit/icon/glyph/expand';
+import ChevronDownIcon from '@atlaskit/icon/glyph/chevron-down';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 import { translate } from '../../base/i18n';
@@ -20,42 +21,42 @@ class DeviceSelector extends Component {
         /**
          * MediaDeviceInfos used for display in the select element.
          */
-        devices: React.PropTypes.array,
+        devices: PropTypes.array,
 
         /**
          * If false, will return a selector with no selection options.
          */
-        hasPermission: React.PropTypes.bool,
+        hasPermission: PropTypes.bool,
 
         /**
          * CSS class for the icon to the left of the dropdown trigger.
          */
-        icon: React.PropTypes.string,
+        icon: PropTypes.string,
 
         /**
          * If true, will render the selector disabled with a default selection.
          */
-        isDisabled: React.PropTypes.bool,
+        isDisabled: PropTypes.bool,
 
         /**
          * The translation key to display as a menu label.
          */
-        label: React.PropTypes.string,
+        label: PropTypes.string,
 
         /**
          * The callback to invoke when a selection is made.
          */
-        onSelect: React.PropTypes.func,
+        onSelect: PropTypes.func,
 
         /**
          * The default device to display as selected.
          */
-        selectedDeviceId: React.PropTypes.string,
+        selectedDeviceId: PropTypes.string,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -115,7 +116,7 @@ class DeviceSelector extends Component {
                 <span className = 'device-selector-trigger-text'>
                     { triggerText }
                 </span>
-                <ExpandIcon
+                <ChevronDownIcon
                     label = 'expand'
                     size = 'large' />
             </div>

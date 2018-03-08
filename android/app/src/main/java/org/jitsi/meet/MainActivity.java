@@ -38,9 +38,7 @@ import java.util.Map;
  * {@code react-native run-android}.
  */
 public class MainActivity extends JitsiMeetActivity {
-    /**
-     * {@inheritDoc}
-     */
+    @Override
     protected JitsiMeetView initializeView() {
         JitsiMeetView view = super.initializeView();
 
@@ -59,49 +57,31 @@ public class MainActivity extends JitsiMeetActivity {
                             + data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onConferenceFailed(Map<String, Object> data) {
                     on("CONFERENCE_FAILED", data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onConferenceJoined(Map<String, Object> data) {
                     on("CONFERENCE_JOINED", data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onConferenceLeft(Map<String, Object> data) {
                     on("CONFERENCE_LEFT", data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onConferenceWillJoin(Map<String, Object> data) {
                     on("CONFERENCE_WILL_JOIN", data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onConferenceWillLeave(Map<String, Object> data) {
                     on("CONFERENCE_WILL_LEAVE", data);
                 }
 
-                /**
-                 * {@inheritDoc}
-                 */
                 @Override
                 public void onLoadConfigError(Map<String, Object> data) {
                     on("LOAD_CONFIG_ERROR", data);
@@ -112,15 +92,13 @@ public class MainActivity extends JitsiMeetActivity {
         return view;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // As this is the Jitsi Meet app (i.e. not the Jitsi Meet SDK), we do
-        // want the Welcome page to be enabled. It defaults to disabled in the
-        // SDK at the time of this writing but it is clearer to be explicit
-        // about what we want anyway.
+        // want to enable some options.
+
+        // The welcome page defaults to disabled in the SDK at the time of this
+        // writing but it is clearer to be explicit about what we want anyway.
         setWelcomePageEnabled(true);
 
         super.onCreate(savedInstanceState);

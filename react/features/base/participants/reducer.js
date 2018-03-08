@@ -1,3 +1,5 @@
+// @flow
+
 import { ReducerRegistry, set } from '../redux';
 import { randomHexString } from '../util';
 
@@ -9,10 +11,7 @@ import {
     PARTICIPANT_UPDATED,
     PIN_PARTICIPANT
 } from './actionTypes';
-import {
-    LOCAL_PARTICIPANT_DEFAULT_ID,
-    PARTICIPANT_ROLE
-} from './constants';
+import { LOCAL_PARTICIPANT_DEFAULT_ID, PARTICIPANT_ROLE } from './constants';
 
 /**
  * Participant object.
@@ -25,10 +24,12 @@ import {
  * @property {boolean} pinned - If true, participant is currently a
  * "PINNED_ENDPOINT".
  * @property {boolean} dominantSpeaker - If this participant is the dominant
- * speaker in the (associated) conference, <tt>true</tt>; otherwise,
- * <tt>false</tt>.
+ * speaker in the (associated) conference, {@code true}; otherwise,
+ * {@code false}.
  * @property {string} email - Participant email.
  */
+
+declare var APP: Object;
 
 /**
  * These properties should not be bulk assigned when updating a particular
@@ -48,9 +49,9 @@ const PARTICIPANT_PROPS_TO_OMIT_WHEN_UPDATE
  * added/modified.
  * @param {JitsiConference} action.conference - Conference instance.
  * @private
- * @returns {Participant|undefined}
+ * @returns {Participant}
  */
-function _participant(state, action) {
+function _participant(state: Object = {}, action) {
     switch (action.type) {
     case DOMINANT_SPEAKER_CHANGED:
         // Only one dominant speaker is allowed.
@@ -67,7 +68,7 @@ function _participant(state, action) {
         break;
 
     case PARTICIPANT_JOINED: {
-        const participant = action.participant; // eslint-disable-line no-shadow
+        const { participant } = action; // eslint-disable-line no-shadow
         const {
             avatarURL,
             connectionStatus,
@@ -75,10 +76,11 @@ function _participant(state, action) {
             email,
             isBot,
             local,
+            name,
             pinned,
             role
         } = participant;
-        let { avatarID, id, name } = participant;
+        let { avatarID, id } = participant;
 
         // avatarID
         //
@@ -94,12 +96,6 @@ function _participant(state, action) {
         // random ID.
         if (!id && local) {
             id = LOCAL_PARTICIPANT_DEFAULT_ID;
-        }
-
-        // name
-        if (!name) {
-            // TODO Get the from config and/or localized.
-            name = local ? 'me' : 'Fellow Jitster';
         }
 
         return {
@@ -118,9 +114,9 @@ function _participant(state, action) {
     }
 
     case PARTICIPANT_UPDATED: {
-        const participant = action.participant; // eslint-disable-line no-shadow
-        const { local } = participant;
+        const { participant } = action; // eslint-disable-line no-shadow
         let { id } = participant;
+        const { local } = participant;
 
         if (!id && local) {
             id = LOCAL_PARTICIPANT_DEFAULT_ID;
@@ -163,17 +159,17 @@ function _participant(state, action) {
  */
 ReducerRegistry.register('features/base/participants', (state = [], action) => {
     switch (action.type) {
-    case PARTICIPANT_JOINED:
-        return [ ...state, _participant(undefined, action) ];
-
-    case PARTICIPANT_LEFT:
-        return state.filter(p => p.id !== action.participant.id);
-
     case DOMINANT_SPEAKER_CHANGED:
     case PARTICIPANT_ID_CHANGED:
     case PARTICIPANT_UPDATED:
     case PIN_PARTICIPANT:
         return state.map(p => _participant(p, action));
+
+    case PARTICIPANT_JOINED:
+        return [ ...state, _participant(undefined, action) ];
+
+    case PARTICIPANT_LEFT:
+        return state.filter(p => p.id !== action.participant.id);
 
     default:
         return state;

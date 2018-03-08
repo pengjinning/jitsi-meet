@@ -64,6 +64,7 @@ $connectionIndicatorBg: #165ecc;
 $audioLevelShadow: rgba(9, 36, 77, 0.9);
 $videoStateIndicatorColor: $defaultColor;
 $videoStateIndicatorBackground: $toolbarBackground;
+$videoStateIndicatorSize: 40px;
 
 /**
  * Feedback Modal
@@ -137,8 +138,8 @@ $formPadding: 16px;
 /**
  * Unsupported browser
  */
-$primaryUnsupportedBrowserButtonBgColor: #17a0db;
-$unsupportedBrowserButtonBgColor: #ff9a00;
+$primaryUnsupportedBrowserButtonBgColor: #0052CC;
+$unsupportedBrowserButtonBgColor: rgba(9, 30, 66, 0.04);
 $unsupportedBrowserTextColor: #4a4a4a;
 $unsupportedBrowserTextSmallFontSize: 17px;
 $unsupportedBrowserTitleColor: #fff;
@@ -151,3 +152,11 @@ $unsupportedDesktopBrowserTextFontSize: 21px;
  */
 $watermarkWidth: 186px;
 $watermarkHeight: 74px;
+
+/**
+ * Welcome page variables.
+ */
+$welcomePageDescriptionColor: #fff;
+$welcomePageFontFamily: inherit;
+$welcomePageHeaderBackground: linear-gradient(#165ecc, #44A5FF);
+$welcomePageTitleColor: #fff;

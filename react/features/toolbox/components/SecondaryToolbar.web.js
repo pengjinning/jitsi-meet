@@ -1,5 +1,6 @@
 /* @flow */
 
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
@@ -21,7 +22,7 @@ declare var config: Object;
  * @class SecondaryToolbar
  * @extends Component
  */
-class SecondaryToolbar extends Component {
+class SecondaryToolbar extends Component<*, *> {
     state: Object;
 
     /**
@@ -34,28 +35,28 @@ class SecondaryToolbar extends Component {
          * Application ID for callstats.io API. The {@code FeedbackButton} will
          * display if defined.
          */
-        _callStatsID: React.PropTypes.string,
+        _callStatsID: PropTypes.string,
 
         /**
          * The indicator which determines whether the local participant is a
          * guest in the conference.
          */
-        _isGuest: React.PropTypes.bool,
+        _isGuest: PropTypes.bool,
 
         /**
          * Handler dispatching toggle toolbar container.
          */
-        _onSideToolbarContainerToggled: React.PropTypes.func,
+        _onSideToolbarContainerToggled: PropTypes.func,
 
         /**
          * Contains map of secondary toolbar buttons.
          */
-        _secondaryToolbarButtons: React.PropTypes.instanceOf(Map),
+        _secondaryToolbarButtons: PropTypes.instanceOf(Map),
 
         /**
          * Shows whether toolbox is visible.
          */
-        _visible: React.PropTypes.bool
+        _visible: PropTypes.bool
     };
 
     /**
@@ -85,7 +86,7 @@ class SecondaryToolbar extends Component {
      *
      * @returns {ReactElement}
      */
-    render(): ReactElement<*> | null {
+    render(): React$Element<*> | null {
         const { _callStatsID, _secondaryToolbarButtons } = this.props;
 
         // The number of buttons to show in the toolbar isn't fixed, it depends
@@ -146,7 +147,7 @@ function _mapDispatchToProps(dispatch: Function): Object {
  * @private
  */
 function _mapStateToProps(state: Object): Object {
-    const { isGuest } = state['features/jwt'];
+    const { isGuest } = state['features/base/jwt'];
     const { secondaryToolbarButtons, visible } = state['features/toolbox'];
     const { callStatsID } = state['features/base/config'];
 

@@ -1,34 +1,65 @@
-/* @flow */
+// @flow
 
+import _ from 'lodash';
 import React, { Component } from 'react';
 import { connect as reactReduxConnect } from 'react-redux';
 
 import { connect, disconnect } from '../../base/connection';
 import { DialogContainer } from '../../base/dialog';
+import { translate } from '../../base/i18n';
+import { CalleeInfoContainer } from '../../base/jwt';
 import { Filmstrip } from '../../filmstrip';
 import { LargeVideo } from '../../large-video';
 import { NotificationsContainer } from '../../notifications';
-import { OverlayContainer } from '../../overlay';
-import { Toolbox } from '../../toolbox';
+import { showToolbox, Toolbox } from '../../toolbox';
 import { HideNotificationBarStyle } from '../../unsupported-browser';
 
-declare var $: Function;
+import { maybeShowSuboptimalExperienceNotification } from '../functions';
+
 declare var APP: Object;
 declare var interfaceConfig: Object;
 
 /**
- * The conference page of the Web application.
+ * The type of the React {@code Component} props of {@link Conference}.
  */
-class Conference extends Component {
+type Props = {
 
     /**
-     * Conference component's property types.
-     *
-     * @static
+     * Whether the local participant is recording the conference.
      */
-    static propTypes = {
-        dispatch: React.PropTypes.func
-    };
+    _iAmRecorder: boolean,
+
+    dispatch: Function,
+    t: Function
+}
+
+/**
+ * The conference page of the Web application.
+ */
+class Conference extends Component<Props> {
+    _onShowToolbar: Function;
+    _originalOnShowToolbar: Function;
+
+    /**
+     * Initializes a new Conference instance.
+     *
+     * @param {Object} props - The read-only properties with which the new
+     * instance is to be initialized.
+     */
+    constructor(props) {
+        super(props);
+
+        // Throttle and bind this component's mousemove handler to prevent it
+        // from firing too often.
+        this._originalOnShowToolbar = this._onShowToolbar;
+        this._onShowToolbar = _.throttle(
+            () => this._originalOnShowToolbar(),
+            100,
+            {
+                leading: true,
+                trailing: false
+            });
+    }
 
     /**
      * Until we don't rewrite UI using react components
@@ -43,7 +74,10 @@ class Conference extends Component {
         APP.UI.registerListeners();
         APP.UI.bindEvents();
 
-        this.props.dispatch(connect());
+        const { dispatch, t } = this.props;
+
+        dispatch(connect());
+        maybeShowSuboptimalExperienceNotification(dispatch, t);
     }
 
     /**
@@ -53,7 +87,6 @@ class Conference extends Component {
      * @inheritdoc
      */
     componentWillUnmount() {
-        APP.UI.stopDaemons();
         APP.UI.unregisterListeners();
         APP.UI.unbindEvents();
 
@@ -67,20 +100,28 @@ class Conference extends Component {
      * @returns {ReactElement}
      */
     render() {
-        const { filmStripOnly } = interfaceConfig;
+        const { filmStripOnly, VIDEO_QUALITY_LABEL_DISABLED } = interfaceConfig;
+        const hideVideoQualityLabel
+            = filmStripOnly
+                || VIDEO_QUALITY_LABEL_DISABLED
+                || this.props._iAmRecorder;
 
         return (
-            <div id = 'videoconference_page'>
+            <div
+                id = 'videoconference_page'
+                onMouseMove = { this._onShowToolbar }>
                 <div id = 'videospace'>
-                    <LargeVideo />
-                    <Filmstrip displayToolbox = { filmStripOnly } />
+                    <LargeVideo
+                        hideVideoQualityLabel = { hideVideoQualityLabel } />
+                    <Filmstrip filmstripOnly = { filmStripOnly } />
                 </div>
 
                 { filmStripOnly ? null : <Toolbox /> }
 
                 <DialogContainer />
                 <NotificationsContainer />
-                <OverlayContainer />
+
+                <CalleeInfoContainer />
 
                 {/*
                   * Temasys automatically injects a notification bar, if
@@ -93,6 +134,37 @@ class Conference extends Component {
             </div>
         );
     }
+
+    /**
+     * Displays the toolbar.
+     *
+     * @private
+     * @returns {void}
+     */
+    _onShowToolbar() {
+        this.props.dispatch(showToolbox());
+    }
 }
 
-export default reactReduxConnect()(Conference);
+/**
+ * Maps (parts of) the Redux state to the associated props for the
+ * {@code Conference} component.
+ *
+ * @param {Object} state - The Redux state.
+ * @private
+ * @returns {{
+ *     _iAmRecorder: boolean
+ * }}
+ */
+function _mapStateToProps(state) {
+    return {
+        /**
+         * Whether the local participant is recording the conference.
+         *
+         * @private
+         */
+        _iAmRecorder: state['features/base/config'].iAmRecorder
+    };
+}
+
+export default reactReduxConnect(_mapStateToProps)(translate(Conference));

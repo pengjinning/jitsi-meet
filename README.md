@@ -1,12 +1,14 @@
 # Jitsi Meet - Secure, Simple and Scalable Video Conferences
 
-Jitsi Meet is an open-source (Apache) WebRTC JavaScript application that uses [Jitsi Videobridge](https://jitsi.org/videobridge) to provide high quality, scalable video conferences. You can see [Jitsi Meet in action](http://youtu.be/7vFUVClsNh0) here at the session #482 of the VoIP Users Conference.
+Jitsi Meet is an open-source (Apache) WebRTC JavaScript application that uses [Jitsi Videobridge](https://jitsi.org/videobridge) to provide high quality, [secure](#security) and scalable video conferences. You can see Jitsi Meet in action [here at the session #482 of the VoIP Users Conference](http://youtu.be/7vFUVClsNh0).
 
-You can also try it out yourself at https://meet.jit.si .
+The Jitsi Meet client runs in your browser, without the need for installing anything on your computer. You can also try it out yourself at https://meet.jit.si .
 
 Jitsi Meet allows for very efficient collaboration. It allows users to stream their desktop or only some windows. It also supports shared document editing with Etherpad.
 
 ## Installation
+
+On the client side, no installation is necessary. You just point your browser to the URL of your deployment. This section is about installing the Jitsi Meet suite on your server and hosting your own conferencing service.
 
 Installing Jitsi Meet is quite a simple experience. For Debian-based systems, we recommend following the [quick-install](https://github.com/jitsi/jitsi-meet/blob/master/doc/quick-install.md) document, which uses the package system.
 
@@ -97,6 +99,21 @@ see our [guidelines for contributing](CONTRIBUTING.md).
 ## Embedding in external applications
 
 Jitsi Meet provides a very flexible way of embedding it in external applications by using the [Jitsi Meet API](doc/api.md).
+
+## Security
+WebRTC today does not provide a way of conducting multiparty conversations with
+end-to-end encryption. As a matter of fact, unless you consistently vocally
+compare DTLS fingerprints with your peers, the same goes for one-to-one calls.
+As a result when using a Jitsi Meet instance, your stream is encrypted on the
+network but decrypted on the machine that hosts the bridge.
+
+The Jitsi Meet architecture allows you to deploy your own version, including
+all server components, and in that case your security guarantees will be roughly
+equivalent to these of a direct one-to-one WebRTC call. This is what's unique to 
+Jitsi Meet in terms of security.
+
+The [meet.jit.si](https://meet.jit.si) service is maintained by the Jitsi team
+at [Atlassian](https://atlassian.com).
 
 ## Mobile app
 Jitsi Meet is also available as a React Native app for Android and iOS.

@@ -1,15 +1,19 @@
-import PropTypes from 'prop-types';
+// @flow
+
 import React, { Component } from 'react';
-import { View } from 'react-native';
+
+// eslint-disable-next-line react-native/split-platform-components
+import { BackAndroid, BackHandler, StatusBar, View } from 'react-native';
 import { connect as reactReduxConnect } from 'react-redux';
 
+import { appNavigate } from '../../app';
 import { connect, disconnect } from '../../base/connection';
 import { DialogContainer } from '../../base/dialog';
-import { Container, LoadingIndicator } from '../../base/react';
+import { CalleeInfoContainer } from '../../base/jwt';
+import { Container, LoadingIndicator, TintedView } from '../../base/react';
 import { createDesiredLocalTracks } from '../../base/tracks';
 import { Filmstrip } from '../../filmstrip';
 import { LargeVideo } from '../../large-video';
-import { OverlayContainer } from '../../overlay';
 import { setToolboxVisible, Toolbox } from '../../toolbox';
 
 import styles from './styles';
@@ -23,54 +27,76 @@ import styles from './styles';
 const _TOOLBOX_TIMEOUT_MS = 5000;
 
 /**
+ * The type of the React {@code Component} props of {@link Conference}.
+ */
+type Props = {
+
+    /**
+     * The indicator which determines that we are still connecting to the
+     * conference which includes establishing the XMPP connection and then
+     * joining the room. If truthy, then an activity/loading indicator will
+     * be rendered.
+     *
+     * @private
+     */
+    _connecting: boolean,
+
+    /**
+     * The handler which dispatches the (redux) action connect.
+     *
+     * @private
+     */
+    _onConnect: Function,
+
+    /**
+     * The handler which dispatches the (redux) action disconnect.
+     *
+     * @private
+     */
+    _onDisconnect: Function,
+
+    /**
+     * Handles a hardware button press for back navigation. Leaves the
+     * associated {@code Conference}.
+     *
+     * @private
+     * @returns {boolean} As the associated conference is unconditionally
+     * left and exiting the app while it renders a {@code Conference} is
+     * undesired, {@code true} is always returned.
+     */
+    _onHardwareBackPress: Function,
+
+    /**
+     * The indicator which determines whether the UI is reduced (to accommodate
+     * smaller display areas).
+     *
+     * @private
+     */
+    _reducedUI: boolean,
+
+    /**
+     * The handler which dispatches the (redux) action setToolboxVisible to
+     * show/hide the Toolbox.
+     *
+     * @private
+     */
+    _setToolboxVisible: Function,
+
+    /**
+     * The indicator which determines whether the Toolbox is visible.
+     *
+     * @private
+     */
+    _toolboxVisible: boolean
+};
+
+/**
  * The conference page of the mobile (i.e. React Native) application.
  */
-class Conference extends Component {
-    /**
-     * Conference component's property types.
-     *
-     * @static
-     */
-    static propTypes = {
-        /**
-         * The indicator which determines that we are still connecting to the
-         * conference which includes establishing the XMPP connection and then
-         * joining the room. If truthy, then an activity/loading indicator will
-         * be rendered.
-         *
-         * @private
-         */
-        _connecting: PropTypes.bool,
+class Conference extends Component<Props> {
+    _backHandler: ?BackHandler;
 
-        /**
-         * The handler which dispatches the (redux) action connect.
-         *
-         * @private
-         */
-        _onConnect: PropTypes.func,
-
-        /**
-         * The handler which dispatches the (redux) action disconnect.
-         *
-         * @private
-         */
-        _onDisconnect: PropTypes.func,
-
-        /**
-         * The handler which dispatches the (redux) action setToolboxVisible to
-         * show/hide the Toolbox.
-         *
-         * @private
-         */
-        _setToolboxVisible: PropTypes.func,
-
-        /**
-         * The indicator which determines whether the Toolbox is visible.
-         *
-         * @private
-         */
-        _toolboxVisible: PropTypes.bool
-    };
+    _toolboxTimeout: ?number;
 
     /**
      * Initializes a new Conference instance.
@@ -90,22 +116,36 @@ class Conference extends Component {
          */
         this._toolboxTimeout = undefined;
 
-        // Bind event handlers so they are only bound once for every instance.
+        // Bind event handlers so they are only bound once per instance.
         this._onClick = this._onClick.bind(this);
+        this._onHardwareBackPress = this._onHardwareBackPress.bind(this);
     }
 
     /**
-     * Inits the Toolbox timeout after the component is initially rendered.
+     * Implements {@link Component#componentDidMount()}. Invoked immediately
+     * after this component is mounted.
      *
      * @inheritdoc
-     * returns {void}
+     * @returns {void}
      */
     componentDidMount() {
+        // Set handling any hardware button presses for back navigation up.
+        const backHandler = BackHandler || BackAndroid;
+
+        if (backHandler) {
+            this._backHandler = backHandler;
+            backHandler.addEventListener(
+                'hardwareBackPress',
+                this._onHardwareBackPress);
+        }
+
         this._setToolboxTimeout(this.props._toolboxVisible);
     }
 
     /**
-     * Inits new connection and conference when conference screen is entered.
+     * Implements {@link Component#componentWillMount()}. Invoked immediately
+     * before mounting occurs. Connects the conference described by the redux
+     * store/state.
      *
      * @inheritdoc
      * @returns {void}
@@ -115,13 +155,24 @@ class Conference extends Component {
     }
 
     /**
-     * Destroys connection, conference and local tracks when conference screen
-     * is left. Clears {@link #_toolboxTimeout} before the component unmounts.
+     * Implements {@link Component#componentWillUnmount()}. Invoked immediately
+     * before this component is unmounted and destroyed. Disconnects the
+     * conference described by the redux store/state.
      *
      * @inheritdoc
      * @returns {void}
      */
     componentWillUnmount() {
+        // Tear handling any hardware button presses for back navigation down.
+        const backHandler = this._backHandler;
+
+        if (backHandler) {
+            this._backHandler = undefined;
+            backHandler.removeEventListener(
+                'hardwareBackPress',
+                this._onHardwareBackPress);
+        }
+
         this._clearToolboxTimeout();
 
         this.props._onDisconnect();
@@ -136,9 +187,14 @@ class Conference extends Component {
     render() {
         return (
             <Container
+                accessibilityLabel = 'Conference'
+                accessible = { false }
                 onClick = { this._onClick }
                 style = { styles.conference }
                 touchFeedback = { false }>
+                <StatusBar
+                    hidden = { true }
+                    translucent = { true } />
 
                 {/*
                   * The LargeVideo is the lowermost stacking layer.
@@ -146,39 +202,42 @@ class Conference extends Component {
                 <LargeVideo />
 
                 {/*
-                  * The Filmstrip is in a stacking layer above the LargeVideo.
-                  * The LargeVideo and the Filmstrip form what the Web/React app
-                  * calls "videospace". Presumably, the name and grouping stem
-                  * from the fact that these two React Components depict the
-                  * videos of the conference's participants.
-                  */}
-                <Filmstrip />
-
-                {/*
-                  * The overlays need to be bellow the Toolbox so that the user
-                  * may tap the ToolbarButtons.
-                  */}
-                <OverlayContainer />
+                  * If there is a ringing call, show the callee's info.
+                  */
+                    this.props._reducedUI || <CalleeInfoContainer />
+                }
 
                 {/*
                   * The activity/loading indicator goes above everything, except
                   * the toolbox/toolbars and the dialogs.
                   */
-                  this.props._connecting
-                      && <View style = { styles.connectingIndicator }>
-                          <LoadingIndicator />
-                      </View>
+                    this.props._connecting
+                        && <TintedView>
+                            <LoadingIndicator />
+                        </TintedView>
                 }
 
-                {/*
-                  * The Toolbox is in a stacking layer above the Filmstrip.
-                  */}
-                <Toolbox />
+                <View style = { styles.toolboxAndFilmstripContainer } >
+                    {/*
+                      * The Toolbox is in a stacking layer bellow the Filmstrip.
+                      */}
+                    <Toolbox />
+                    {/*
+                      * The Filmstrip is in a stacking layer above the
+                      * LargeVideo. The LargeVideo and the Filmstrip form what
+                      * the Web/React app calls "videospace". Presumably, the
+                      * name and grouping stem from the fact that these two
+                      * React Components depict the videos of the conference's
+                      * participants.
+                      */}
+                    <Filmstrip />
+                </View>
 
                 {/*
                   * The dialogs are in the topmost stacking layers.
-                  */}
-                <DialogContainer />
+                  */
+                    this.props._reducedUI || <DialogContainer />
+                }
             </Container>
         );
     }
@@ -196,6 +255,8 @@ class Conference extends Component {
         }
     }
 
+    _onClick: () => void;
+
     /**
      * Changes the value of the toolboxVisible state, thus allowing us to switch
      * between Toolbox and Filmstrip and change their visibility.
@@ -207,7 +268,23 @@ class Conference extends Component {
         const toolboxVisible = !this.props._toolboxVisible;
 
         this.props._setToolboxVisible(toolboxVisible);
-        this._setToolboxTimeout(toolboxVisible);
+
+        // XXX If the user taps to toggle the visibility of the Toolbox, then no
+        // automatic toggling of the visibility should happen.
+        this._clearToolboxTimeout();
+    }
+
+    _onHardwareBackPress: () => boolean;
+
+    /**
+     * Handles a hardware button press for back navigation.
+     *
+     * @returns {boolean} If the hardware button press for back navigation was
+     * handled by this {@code Conference}, then {@code true}; otherwise,
+     * {@code false}.
+     */
+    _onHardwareBackPress() {
+        return this._backHandler && this.props._onHardwareBackPress();
     }
 
     /**
@@ -263,32 +340,48 @@ function _mapDispatchToProps(dispatch) {
         },
 
         /**
-         * Dispatches an action changing the visiblity of the Toolbox.
+         * Handles a hardware button press for back navigation. Leaves the
+         * associated {@code Conference}.
+         *
+         * @returns {boolean} As the associated conference is unconditionally
+         * left and exiting the app while it renders a {@code Conference} is
+         * undesired, {@code true} is always returned.
+         */
+        _onHardwareBackPress() {
+            dispatch(appNavigate(undefined));
+
+            return true;
+        },
+
+        /**
+         * Dispatches an action changing the visibility of the Toolbox.
          *
          * @param {boolean} visible - True to show the Toolbox or false to hide
          * it.
          * @returns {void}
          * @private
          */
-        _setToolboxVisible(visible: boolean) {
+        _setToolboxVisible(visible) {
             dispatch(setToolboxVisible(visible));
         }
     };
 }
 
 /**
- * Maps (parts of) the Redux state to the associated Conference's props.
+ * Maps (parts of) the redux state to the associated {@code Conference}'s props.
  *
- * @param {Object} state - The Redux state.
+ * @param {Object} state - The redux state.
  * @private
  * @returns {{
  *     _connecting: boolean,
+ *     _reducedUI: boolean,
  *     _toolboxVisible: boolean
  * }}
  */
 function _mapStateToProps(state) {
     const { connecting, connection } = state['features/base/connection'];
     const { conference, joining, leaving } = state['features/base/conference'];
+    const { reducedUI } = state['features/base/responsive-ui'];
 
     // XXX There is a window of time between the successful establishment of the
     // XMPP connection and the subsequent commencement of joining the MUC during
@@ -315,6 +408,15 @@ function _mapStateToProps(state) {
         _connecting: Boolean(connecting_),
 
         /**
+         * The indicator which determines whether the UI is reduced (to
+         * accommodate smaller display areas).
+         *
+         * @private
+         * @type {boolean}
+         */
+        _reducedUI: reducedUI,
+
+        /**
          * The indicator which determines whether the Toolbox is visible.
          *
          * @private
@@ -324,5 +426,6 @@ function _mapStateToProps(state) {
     };
 }
 
+// $FlowFixMe
 export default reactReduxConnect(_mapStateToProps, _mapDispatchToProps)(
     Conference);

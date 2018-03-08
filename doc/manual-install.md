@@ -1,5 +1,10 @@
 # Server Installation for Jitsi Meet
 
+
+:warning: **WARNING:** Manual installation is not recommended. We recommend following the [quick-install](https://github.com/jitsi/jitsi-meet/blob/master/doc/quick-install.md) document. The current document describes the steps that are needed to install a working deployment, but steps are easy to mess up, and the debian packages are more up-to-date, where this document sometimes is not updated to latest changes.
+
+
+
 This describes configuring a server `jitsi.example.com` running Debian or a Debian Derivative. You will need to
 change references to that to match your host, and generate some passwords for
 `YOURSECRET1`, `YOURSECRET2` and `YOURSECRET3`.
@@ -60,6 +65,10 @@ VirtualHost "jitsi.example.com"
 - add domain with authentication for conference focus user:
 ```
 VirtualHost "auth.jitsi.example.com"
+    ssl = {
+        key = "/var/lib/prosody/auth.jitsi.example.com.key";
+        certificate = "/var/lib/prosody/auth.jitsi.example.com.crt";
+    }
     authentication = "internal_plain"
 ```
 - add focus user to server admins:
@@ -83,7 +92,15 @@ ln -s /etc/prosody/conf.avail/jitsi.example.com.cfg.lua /etc/prosody/conf.d/jits
 Generate certs for the domain:
 ```sh
 prosodyctl cert generate jitsi.example.com
+prosodyctl cert generate auth.jitsi.example.com
 ```
+
+Add auth.jitsi.example.com to the trusted certificates on the local machine:
+```sh
+ln -sf /var/lib/prosody/auth.jitsi.example.com.crt /usr/local/share/ca-certificates/auth.jitsi.example.com.crt
+update-ca-certificates -f
+```
+Note that the `-f` flag is necessary if there are symlinks left from a previous installation.
 
 Create conference focus user:
 ```sh

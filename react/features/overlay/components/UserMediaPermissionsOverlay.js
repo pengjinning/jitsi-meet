@@ -1,42 +1,21 @@
 /* global interfaceConfig */
 
-import React, { Component } from 'react';
+import React from 'react';
+import { connect } from 'react-redux';
 
 import { translate, translateToHTML } from '../../base/i18n';
 
+import AbstractUserMediaPermissionsOverlay, { abstractMapStateToProps }
+    from './AbstractUserMediaPermissionsOverlay';
 import OverlayFrame from './OverlayFrame';
 
 /**
  * Implements a React Component for overlay with guidance how to proceed with
  * gUM prompt.
  */
-class UserMediaPermissionsOverlay extends Component {
+class UserMediaPermissionsOverlay extends AbstractUserMediaPermissionsOverlay {
     /**
-     * UserMediaPermissionsOverlay component's property types.
-     *
-     * @static
-     */
-    static propTypes = {
-        /**
-         * The browser which is used currently. The text is different for every
-         * browser.
-         *
-         * @public
-         * @type {string}
-         */
-        browser: React.PropTypes.string,
-
-        /**
-         * The function to translate human-readable text.
-         *
-         * @public
-         * @type {Function}
-         */
-        t: React.PropTypes.func
-    };
-
-    /**
-     * Initializes a new SuspendedOverlay instance.
+     * Initializes a new UserMediaPermissionsOverlay instance.
      *
      * @param {Object} props - The read-only properties with which the new
      * instance is to be initialized.
@@ -59,7 +38,7 @@ class UserMediaPermissionsOverlay extends Component {
      * Implements React's {@link Component#render()}.
      *
      * @inheritdoc
-     * @returns {ReactElement|null}
+     * @returns {ReactElement}
      */
     render() {
         const { browser, t } = this.props;
@@ -97,8 +76,8 @@ class UserMediaPermissionsOverlay extends Component {
     /**
      * Renders the policy logo.
      *
-     * @returns {ReactElement|null}
      * @private
+     * @returns {ReactElement|null}
      */
     _renderPolicyLogo() {
         const { policyLogoSrc } = this.state;
@@ -115,4 +94,5 @@ class UserMediaPermissionsOverlay extends Component {
     }
 }
 
-export default translate(UserMediaPermissionsOverlay);
+export default translate(
+    connect(abstractMapStateToProps)(UserMediaPermissionsOverlay));

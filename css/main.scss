@@ -33,6 +33,7 @@
 /* Modules BEGIN */
 
 @import 'dial-out';
+@import 'aui_reset';
 @import 'base';
 @import 'utils';
 @import 'overlay/overlay';
@@ -42,6 +43,7 @@
 @import 'modals/device-selection/device-selection';
 @import 'modals/dialog';
 @import 'modals/feedback/feedback';
+@import 'modals/invite/info';
 @import 'modals/speaker_stats/speaker_stats';
 @import 'modals/video-quality/video-quality';
 @import 'videolayout_default';
@@ -53,6 +55,7 @@
 @import 'chat';
 @import 'ringing/ringing';
 @import 'welcome_page';
+@import 'welcome_page_content';
 @import 'toolbars';
 @import 'side_toolbar_container';
 @import 'jquery.contextMenu';
@@ -60,11 +63,9 @@
 @import 'redirect_page';
 @import 'components/form-control';
 @import 'components/link';
-@import 'shortcuts/main';
 @import 'components/button-control';
 @import 'components/input-control';
 @import 'components/input-slider';
-@import "modals/invite/invite";
 @import "connection-info";
 @import 'aui-components/dropdown';
 @import '404';

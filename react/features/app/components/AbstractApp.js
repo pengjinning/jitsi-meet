@@ -1,3 +1,5 @@
+/* global APP */
+
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -10,14 +12,15 @@ import {
     localParticipantJoined,
     localParticipantLeft
 } from '../../base/participants';
-import { RouteRegistry } from '../../base/react';
+import '../../base/profile';
+import { Fragment, RouteRegistry } from '../../base/react';
 import { MiddlewareRegistry, ReducerRegistry } from '../../base/redux';
+import { PersistenceRegistry } from '../../base/storage';
 import { toURLString } from '../../base/util';
+import { OverlayContainer } from '../../overlay';
 import { BlankPage } from '../../welcome';
 
 import { appNavigate, appWillMount, appWillUnmount } from '../actions';
-
-declare var APP: Object;
 
 /**
  * The default URL to open if no other was specified to {@code AbstractApp}
@@ -71,6 +74,7 @@ export class AbstractApp extends Component {
         super(props);
 
         this.state = {
+
             /**
              * The Route rendered by this {@code AbstractApp}.
              *
@@ -79,12 +83,36 @@ export class AbstractApp extends Component {
             route: undefined,
 
             /**
+             * The state of the »possible« async initialization of
+             * the {@code AbstractApp}.
+             */
+            appAsyncInitialized: false,
+
+            /**
              * The redux store used by this {@code AbstractApp}.
              *
              * @type {Store}
              */
-            store: this._maybeCreateStore(props)
+            store: undefined
         };
+
+        /**
+         * Make the mobile {@code AbstractApp} wait until the
+         * {@code AsyncStorage} implementation of {@code Storage} initializes
+         * fully.
+         *
+         * @private
+         * @see {@link #_initStorage}
+         * @type {Promise}
+         */
+        this._init
+            = this._initStorage()
+                .catch(() => { /* AbstractApp should always initialize! */ })
+                .then(() =>
+                    this.setState({
+                        route: undefined,
+                        store: this._maybeCreateStore(props)
+                    }));
     }
 
     /**
@@ -94,29 +122,50 @@ export class AbstractApp extends Component {
      * @inheritdoc
      */
     componentWillMount() {
-        const { dispatch } = this._getStore();
+        this._init.then(() => {
+            const { dispatch, getState } = this._getStore();
 
-        dispatch(appWillMount(this));
+            dispatch(appWillMount(this));
 
-        // FIXME I believe it makes more sense for a middleware to dispatch
-        // localParticipantJoined on APP_WILL_MOUNT because the order of actions
-        // is important, not the call site. Moreover, we've got localParticipant
-        // business logic in the React Component (i.e. UI) AbstractApp now.
-        let localParticipant;
+            // FIXME I believe it makes more sense for a middleware to dispatch
+            // localParticipantJoined on APP_WILL_MOUNT because the order of
+            // actions is important, not the call site. Moreover, we've got
+            // localParticipant business logic in the React Component
+            // (i.e. UI) AbstractApp now.
+            let localParticipant = {};
 
-        if (typeof APP === 'object') {
-            localParticipant = {
-                avatarID: APP.settings.getAvatarId(),
-                avatarURL: APP.settings.getAvatarUrl(),
-                email: APP.settings.getEmail(),
-                name: APP.settings.getDisplayName()
-            };
-        }
-        dispatch(localParticipantJoined(localParticipant));
+            if (typeof APP === 'object') {
+                localParticipant = {
+                    avatarID: APP.settings.getAvatarId(),
+                    avatarURL: APP.settings.getAvatarUrl(),
+                    email: APP.settings.getEmail(),
+                    name: APP.settings.getDisplayName()
+                };
+            }
 
-        // If a URL was explicitly specified to this React Component, then open
-        // it; otherwise, use a default.
-        this._openURL(toURLString(this.props.url) || this._getDefaultURL());
+            // Profile is the new React compatible settings.
+            const profile = getState()['features/base/profile'];
+
+            if (profile) {
+                localParticipant.email
+                    = profile.email || localParticipant.email;
+                localParticipant.name
+                    = profile.displayName || localParticipant.name;
+            }
+
+            // We set the initialized state here and not in the contructor to
+            // make sure that {@code componentWillMount} gets invoked before
+            // the app tries to render the actual app content.
+            this.setState({
+                appAsyncInitialized: true
+            });
+
+            dispatch(localParticipantJoined(localParticipant));
+
+            // If a URL was explicitly specified to this React Component,
+            // then open it; otherwise, use a default.
+            this._openURL(toURLString(this.props.url) || this._getDefaultURL());
+        });
     }
 
     /**
@@ -129,32 +178,36 @@ export class AbstractApp extends Component {
      * @returns {void}
      */
     componentWillReceiveProps(nextProps) {
-        // The consumer of this AbstractApp did not provide a redux store.
-        if (typeof nextProps.store === 'undefined'
+        const { props } = this;
 
-                // The consumer of this AbstractApp did provide a redux store
-                // before. Which means that the consumer changed their mind. In
-                // such a case this instance should create its own internal
-                // redux store. If the consumer did not provide a redux store
-                // before, then this instance is using its own internal redux
-                // store already.
-                && typeof this.props.store !== 'undefined') {
-            this.setState({
-                store: this._maybeCreateStore(nextProps)
-            });
-        }
+        this._init.then(() => {
+            // The consumer of this AbstractApp did not provide a redux store.
+            if (typeof nextProps.store === 'undefined'
 
-        // Deal with URL changes.
-        let { url } = nextProps;
+                    // The consumer of this AbstractApp did provide a redux
+                    // store before. Which means that the consumer changed
+                    // their mind. In such a case this instance should create
+                    // its own internal redux store. If the consumer did not
+                    // provide a redux store before, then this instance is
+                    // using its own internal redux store already.
+                    && typeof props.store !== 'undefined') {
+                this.setState({
+                    store: this._maybeCreateStore(nextProps)
+                });
+            }
 
-        url = toURLString(url);
-        if (toURLString(this.props.url) !== url
+            // Deal with URL changes.
+            let { url } = nextProps;
 
-                // XXX Refer to the implementation of loadURLObject: in
-                // ios/sdk/src/JitsiMeetView.m for further information.
-                || this.props.timestamp !== nextProps.timestamp) {
-            this._openURL(url || this._getDefaultURL());
-        }
+            url = toURLString(url);
+            if (toURLString(props.url) !== url
+
+                    // XXX Refer to the implementation of loadURLObject: in
+                    // ios/sdk/src/JitsiMeetView.m for further information.
+                    || props.timestamp !== nextProps.timestamp) {
+                this._openURL(url || this._getDefaultURL());
+            }
+        });
     }
 
     /**
@@ -188,22 +241,41 @@ export class AbstractApp extends Component {
     }
 
     /**
+     * Delays this {@code AbstractApp}'s startup until the {@code Storage}
+     * implementation of {@code localStorage} initializes. While the
+     * initialization is instantaneous on Web (with Web Storage API), it is
+     * asynchronous on mobile/react-native.
+     *
+     * @private
+     * @returns {Promise}
+     */
+    _initStorage() {
+        const localStorageInitializing = window.localStorage._initializing;
+
+        return (
+            typeof localStorageInitializing === 'undefined'
+                ? Promise.resolve()
+                : localStorageInitializing);
+    }
+
+    /**
      * Implements React's {@link Component#render()}.
      *
      * @inheritdoc
      * @returns {ReactElement}
      */
     render() {
-        const { route } = this.state;
+        const { appAsyncInitialized, route } = this.state;
         const component = (route && route.component) || BlankPage;
 
-        if (component) {
+        if (appAsyncInitialized && component) {
             return (
                 <I18nextProvider i18n = { i18next }>
                     <Provider store = { this._getStore() }>
-                        {
-                            this._createElement(component)
-                        }
+                        <Fragment>
+                            { this._createElement(component) }
+                            <OverlayContainer />
+                        </Fragment>
                     </Provider>
                 </I18nextProvider>
             );
@@ -279,7 +351,11 @@ export class AbstractApp extends Component {
             middleware = compose(middleware, devToolsExtension());
         }
 
-        return createStore(reducer, middleware);
+        return (
+            createStore(
+                reducer,
+                PersistenceRegistry.getPersistedState(),
+                middleware));
     }
 
     /**
@@ -303,7 +379,11 @@ export class AbstractApp extends Component {
             }
         }
 
-        return this.props.defaultURL || DEFAULT_URL;
+        return (
+            this.props.defaultURL
+                || this._getStore().getState()['features/base/profile']
+                    .serverURL
+                || DEFAULT_URL);
     }
 
     /**

@@ -1,5 +1,6 @@
 /* @flow */
 
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 import { Watermarks } from '../../base/react';
@@ -14,7 +15,14 @@ declare var interfaceConfig: Object;
  *
  * @extends Component
  */
-export default class LargeVideo extends Component {
+export default class LargeVideo extends Component<*> {
+    static propTypes = {
+        /**
+         * True if the {@code VideoQualityLabel} should not be displayed.
+         */
+        hideVideoQualityLabel: PropTypes.bool
+    };
+
     /**
      * Implements React's {@link Component#render()}.
      *
@@ -42,12 +50,7 @@ export default class LargeVideo extends Component {
                 <div id = 'remotePresenceMessage' />
                 <span id = 'remoteConnectionMessage' />
                 <div>
-                    <div className = 'video_blurred_container'>
-                        <video
-                            autoPlay = { true }
-                            id = 'largeVideoBackground'
-                            muted = 'true' />
-                    </div>
+                    <div id = 'largeVideoBackgroundContainer' />
                     {
 
                         /**
@@ -68,7 +71,8 @@ export default class LargeVideo extends Component {
                     </div>
                 </div>
                 <span id = 'localConnectionMessage' />
-                { interfaceConfig.filmStripOnly ? null : <VideoQualityLabel /> }
+                { this.props.hideVideoQualityLabel
+                    ? null : <VideoQualityLabel /> }
                 <RecordingLabel />
             </div>
         );

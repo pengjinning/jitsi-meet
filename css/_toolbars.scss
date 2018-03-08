@@ -36,7 +36,6 @@
  * Common toolbar styles.
  */
 .toolbar {
-    color: $modalTextColor;
     height: 100%;
     pointer-events: auto;
     position: relative;
@@ -57,11 +56,14 @@
         /**
          * Toolbar button styles for always on top.
          */
-        > .button {
+        .button {
             font-size: $alwaysOnTopToolbarFontSize;
             height: $alwaysOnTopToolbarSize;
             line-height: $alwaysOnTopToolbarSize;
             width: $alwaysOnTopToolbarSize;
+            &_hangup, &_hangup:hover {
+                font-size: $alwaysOnTopToolbarFontSize;
+            }
         }
     }
 
@@ -82,18 +84,19 @@
         vertical-align: middle;
         width: $defaultToolbarSize;
 
-        &_hangup {
-            color: $hangupColor;
-            font-size: $hangupFontSize;
-        }
-
         &[disabled] {
             opacity: 0.5;
         }
 
         &:hover, &:active {
+            color: $toolbarButtonColor;
             cursor: pointer;
             text-decoration: none;
+        }
+
+        &_hangup, &_hangup:hover {
+            color: $hangupColor;
+            font-size: $hangupFontSize;
         }
 
         &:not(.toggled) {
@@ -150,10 +153,13 @@
 
         @include transform(translateX(-50%));
 
+        > a:first-child.button,
         > div:first-child .button {
             border-bottom-left-radius: 3px;
             border-top-left-radius: 3px;
         }
+
+        > a:last-child.button,
         > div:last-child .button {
             border-bottom-right-radius: 3px;
             border-top-right-radius: 3px;
@@ -183,6 +189,7 @@
         justify-content: flex-start;
         left: 0;
         padding-top: 24px;
+        pointer-events: none;
         top: 0;
         transform: translateX(-100%);
         width: $defaultToolbarSize;
@@ -192,6 +199,10 @@
             font-size: $secToolbarFontSize;
             height: $secToolbarLineHeight;
             line-height: $secToolbarLineHeight;
+        }
+
+        > * {
+            pointer-events: auto
         }
 
         .button.toggled:not(.icon-raised-hand):not(.button-active) {
@@ -226,11 +237,15 @@
             width: 37px;
         }
 
-        .button:first-child {
+        .button-popover-message {
+            width: 100px;
+        }
+
+        .toolbar-button-wrapper:first-child .button {
             border-top-left-radius: 3px;
             border-top-right-radius: 3px;
         }
-        .button:last-child {
+        .toolbar-button-wrapper:last-child .button {
             border-bottom-right-radius: 3px;
             border-bottom-left-radius: 3px;
         }

@@ -9,22 +9,21 @@ import { NetworkActivityIndicator } from '../../mobile/network-activity';
 
 import { isWelcomePageAppEnabled } from '../functions';
 import LocalVideoTrackUnderlay from './LocalVideoTrackUnderlay';
-import styles from './styles';
 
 /**
- * The React <tt>Component</tt> displayed by <tt>AbstractApp</tt> when it has no
- * <tt>Route</tt> to render. Renders a progress indicator when there are ongoing
+ * The React {@code Component} displayed by {@code AbstractApp} when it has no
+ * {@code Route} to render. Renders a progress indicator when there are ongoing
  * network requests.
  */
-class BlankPage extends Component {
+class BlankPage extends Component<*> {
     /**
-     * <tt>BlankPage</tt> React <tt>Component</tt>'s prop types.
+     * {@code BlankPage} React {@code Component}'s prop types.
      *
      * @static
      */
     static propTypes = {
         /**
-         * The indicator which determines whether <tt>WelcomePage</tt> is (to
+         * The indicator which determines whether {@code WelcomePage} is (to
          * be) rendered.
          *
          * @private
@@ -54,7 +53,7 @@ class BlankPage extends Component {
      */
     render() {
         return (
-            <LocalVideoTrackUnderlay style = { styles.blankPage }>
+            <LocalVideoTrackUnderlay>
                 <NetworkActivityIndicator />
             </LocalVideoTrackUnderlay>
         );
@@ -62,8 +61,8 @@ class BlankPage extends Component {
 }
 
 /**
- * Maps (parts of) the redux state to the React <tt>Component</tt> props of
- * <tt>BlankPage</tt>.
+ * Maps (parts of) the redux state to the React {@code Component} props of
+ * {@code BlankPage}.
  *
  * @param {Object} state - The redux state.
  * @private

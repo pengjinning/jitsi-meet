@@ -1,6 +1,7 @@
-import { StatelessDropdownMenu } from '@atlaskit/dropdown-menu';
-import AKFieldText, { FieldText } from '@atlaskit/field-text';
-import ExpandIcon from '@atlaskit/icon/glyph/expand';
+import { DropdownMenuStateless as DropdownMenu } from '@atlaskit/dropdown-menu';
+import { FieldTextStateless as TextField } from '@atlaskit/field-text';
+import ChevronDownIcon from '@atlaskit/icon/glyph/chevron-down';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
@@ -40,22 +41,22 @@ class DialOutNumbersForm extends Component {
         /**
          * The redux state representing the list of dial-out codes.
          */
-        _dialOutCodes: React.PropTypes.array,
+        _dialOutCodes: PropTypes.array,
 
         /**
          * The function called on every dial input change.
          */
-        onChange: React.PropTypes.func,
+        onChange: PropTypes.func,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func,
+        t: PropTypes.func,
 
         /**
          * Invoked to send an ajax request for dial-out codes.
          */
-        updateDialOutCodes: React.PropTypes.func
+        updateDialOutCodes: PropTypes.func
     };
 
     /**
@@ -148,7 +149,7 @@ class DialOutNumbersForm extends Component {
                 { _dialOutCodes ? this._createDropdownMenu(
                         this._formatCountryCodes(_dialOutCodes)) : null }
                 <div className = 'dial-out-input'>
-                    <AKFieldText
+                    <TextField
                         autoFocus = { true }
                         isLabelHidden = { true }
                         label = { 'dial-out-input-field' }
@@ -163,7 +164,7 @@ class DialOutNumbersForm extends Component {
     }
 
     /**
-     * Creates a {@code StatelessDropdownMenu} instance.
+     * Creates a {@code DropdownMenu} instance.
      *
      * @param {Array} items - The content to display within the dropdown.
      * @returns {ReactElement}
@@ -173,14 +174,14 @@ class DialOutNumbersForm extends Component {
 
         return (
             <div className = 'dropdown-container'>
-                <StatelessDropdownMenu
+                <DropdownMenu
                     isOpen = { this.state.isDropdownOpen }
                     items = { [ { items } ] }
                     onItemActivated = { this._onSelect }
                     onOpenChange = { this._onOpenChange }
                     shouldFitContainer = { false }>
                     { this._createDropdownTrigger(dialCode, code) }
-                </StatelessDropdownMenu>
+                </DropdownMenu>
             </div>
         );
     }
@@ -202,10 +203,10 @@ class DialOutNumbersForm extends Component {
                     className = 'dial-out-flag-icon'
                     countryCode = { `${countryCode}` } />
                 { /**
-                   * FIXME Replace FieldText with AtlasKit Button when an issue
+                   * FIXME Replace TextField with AtlasKit Button when an issue
                    * with icons shrinking due to button text is fixed.
                    */ }
-                <FieldText
+                <TextField
                     className = 'input-control dial-out-code'
                     isLabelHidden = { true }
                     isReadOnly = { true }
@@ -214,9 +215,9 @@ class DialOutNumbersForm extends Component {
                     type = 'text'
                     value = { dialCode || '' } />
                 <span className = 'dropdown-trigger-icon'>
-                    <ExpandIcon
+                    <ChevronDownIcon
                         label = 'expand'
-                        size = 'medium' />
+                        size = 'small' />
                 </span>
             </div>
         );
@@ -224,7 +225,7 @@ class DialOutNumbersForm extends Component {
 
     /**
      * Transforms the passed in numbers object into an array of objects that can
-     * be parsed by {@code StatelessDropdownMenu}.
+     * be parsed by {@code DropdownMenu}.
      *
      * @param {Object} countryCodes - The list of country codes.
      * @private
@@ -258,8 +259,8 @@ class DialOutNumbersForm extends Component {
     }
 
     /**
-     * This is a no-op function used to stub out FieldText's onChange in order
-     * to prevent FieldText from printing prop type validation errors. FieldText
+     * This is a no-op function used to stub out TextField's onChange in order
+     * to prevent TextField from printing prop type validation errors. TextField
      * is used as a trigger for the dropdown in {@code DialOutNumbersForm} to
      * get the desired AtlasKit input look for the UI.
      *
@@ -353,7 +354,7 @@ class DialOutNumbersForm extends Component {
  * @param {Object} state - The Redux state.
  * @private
  * @returns {{
- *     _dialOutCodes: React.PropTypes.object
+ *     _dialOutCodes: Object
  * }}
  */
 function _mapStateToProps(state) {

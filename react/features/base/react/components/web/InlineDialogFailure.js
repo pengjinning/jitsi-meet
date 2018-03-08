@@ -1,4 +1,7 @@
-import AKButton from '@atlaskit/button';
+/* @flow */
+
+import Button from '@atlaskit/button';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 
 import { translate } from '../../../i18n';
@@ -8,7 +11,7 @@ declare var interfaceConfig: Object;
 /**
  * Inline dialog that represents a failure and allows a retry.
  */
-class InlineDialogFailure extends Component {
+class InlineDialogFailure extends Component<*> {
     /**
      * {@code InlineDialogFailure}'s property types.
      *
@@ -18,12 +21,12 @@ class InlineDialogFailure extends Component {
         /**
          * Allows to retry the call that previously didn't succeed.
          */
-        onRetry: React.PropTypes.func,
+        onRetry: PropTypes.func,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -61,11 +64,11 @@ class InlineDialogFailure extends Component {
                     { t('inlineDialogFailure.msg') }
                 </div>
                 { supportLinkElem }
-                <AKButton
+                <Button
                     className = 'inline-dialog-error-button'
                     onClick = { this.props.onRetry } >
                     { t('inlineDialogFailure.retry') }
-                </AKButton>
+                </Button>
             </div>
         );
     }

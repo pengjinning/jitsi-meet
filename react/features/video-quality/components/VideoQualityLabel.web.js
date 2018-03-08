@@ -1,15 +1,20 @@
 import Tooltip from '@atlaskit/tooltip';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import { translate } from '../../base/i18n';
-import { shouldRemoteVideosBeVisible } from '../../filmstrip';
 
-import {
-    VIDEO_QUALITY_LEVELS
-} from '../../base/conference';
-
-const { HIGH, STANDARD, LOW } = VIDEO_QUALITY_LEVELS;
+/**
+ * A map of video resolution (number) to translation key.
+ *
+ * @type {Object}
+ */
+const RESOLUTION_TO_TRANSLATION_KEY = {
+    720: 'videoStatus.hd',
+    360: 'videoStatus.sd',
+    180: 'videoStatus.ld'
+};
 
 /**
  * Expected video resolutions placed into an array, sorted from lowest to
@@ -18,18 +23,9 @@ const { HIGH, STANDARD, LOW } = VIDEO_QUALITY_LEVELS;
  * @type {number[]}
  */
 const RESOLUTIONS
-    = Object.values(VIDEO_QUALITY_LEVELS).sort((a, b) => a - b);
-
-/**
- * A map of video resolution (number) to translation key.
- *
- * @type {Object}
- */
-const RESOLUTION_TO_TRANSLATION_KEY = {
-    [HIGH]: 'videoStatus.hd',
-    [STANDARD]: 'videoStatus.sd',
-    [LOW]: 'videoStatus.ld'
-};
+    = Object.keys(RESOLUTION_TO_TRANSLATION_KEY)
+        .map(resolution => parseInt(resolution, 10))
+        .sort((a, b) => a - b);
 
 /**
  * React {@code Component} responsible for displaying a label that indicates
@@ -48,34 +44,28 @@ export class VideoQualityLabel extends Component {
         /**
          * Whether or not the conference is in audio only mode.
          */
-        _audioOnly: React.PropTypes.bool,
+        _audioOnly: PropTypes.bool,
 
         /**
          * Whether or not a connection to a conference has been established.
          */
-        _conferenceStarted: React.PropTypes.bool,
+        _conferenceStarted: PropTypes.bool,
 
         /**
          * Whether or not the filmstrip is displayed with remote videos. Used to
          * determine display classes to set.
          */
-        _filmstripVisible: React.PropTypes.bool,
-
-        /**
-         * Whether or note remote videos are visible in the filmstrip,
-         * regardless of count. Used to determine display classes to set.
-         */
-        _remoteVideosVisible: React.PropTypes.bool,
+        _filmstripVisible: PropTypes.bool,
 
         /**
          * The current video resolution (height) to display a label for.
          */
-        _resolution: React.PropTypes.number,
+        _resolution: PropTypes.number,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -125,7 +115,6 @@ export class VideoQualityLabel extends Component {
             _audioOnly,
             _conferenceStarted,
             _filmstripVisible,
-            _remoteVideosVisible,
             _resolution,
             t
         } = this.props;
@@ -142,12 +131,9 @@ export class VideoQualityLabel extends Component {
         const baseClasses = 'video-state-indicator moveToCorner';
         const filmstrip
             = _filmstripVisible ? 'with-filmstrip' : 'without-filmstrip';
-        const remoteVideosVisible = _remoteVideosVisible
-            ? 'with-remote-videos'
-            : 'without-remote-videos';
         const opening = this.state.togglingToVisible ? 'opening' : '';
         const classNames
-            = `${baseClasses} ${filmstrip} ${remoteVideosVisible} ${opening}`;
+            = `${baseClasses} ${filmstrip} ${opening}`;
         const tooltipKey
             = `videoStatus.labelTooltip${_audioOnly ? 'AudioOnly' : 'Video'}`;
 
@@ -208,7 +194,6 @@ export class VideoQualityLabel extends Component {
  *     _audioOnly: boolean,
  *     _conferenceStarted: boolean,
  *     _filmstripVisible: true,
- *     _remoteVideosVisible: boolean,
  *     _resolution: number
  * }}
  */
@@ -221,7 +206,6 @@ function _mapStateToProps(state) {
         _audioOnly: audioOnly,
         _conferenceStarted: Boolean(conference),
         _filmstripVisible: visible,
-        _remoteVideosVisible: shouldRemoteVideosBeVisible(state),
         _resolution: resolution
     };
 }

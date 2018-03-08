@@ -1,5 +1,8 @@
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+
+import { appendSuffix } from '../functions';
 
 import { translate } from '../../base/i18n';
 import { participantDisplayNameChanged } from '../../base/participants';
@@ -19,38 +22,38 @@ class DisplayName extends Component {
         /**
          * Whether or not the display name should be editable on click.
          */
-        allowEditing: React.PropTypes.bool,
+        allowEditing: PropTypes.bool,
 
         /**
          * Invoked to update the participant's display name.
          */
-        dispatch: React.PropTypes.func,
+        dispatch: PropTypes.func,
 
         /**
          * The participant's current display name.
          */
-        displayName: React.PropTypes.string,
+        displayName: PropTypes.string,
 
         /**
          * A string to append to the displayName, if provided.
          */
-        displayNameSuffix: React.PropTypes.string,
+        displayNameSuffix: PropTypes.string,
 
         /**
          * The ID attribute to add to the component. Useful for global querying
          * for the component by legacy components and torture tests.
          */
-        elementID: React.PropTypes.string,
+        elementID: PropTypes.string,
 
         /**
          * The ID of the participant whose name is being displayed.
          */
-        participantID: React.PropTypes.string,
+        participantID: PropTypes.string,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -137,20 +140,18 @@ class DisplayName extends Component {
                     onKeyDown = { this._onKeyDown }
                     placeholder = { t('defaultNickname') }
                     ref = { this._setNameInputRef }
+                    spellCheck = { 'false' }
                     type = 'text'
                     value = { this.state.editDisplayNameValue } />
             );
         }
-
-        const suffix
-            = displayName && displayNameSuffix ? ` (${displayNameSuffix})` : '';
 
         return (
             <span
                 className = 'displayname'
                 id = { elementID }
                 onClick = { this._onStartEditing }>
-                { `${displayName || displayNameSuffix || ''}${suffix}` }
+                { `${appendSuffix(displayName, displayNameSuffix)}` }
             </span>
         );
     }

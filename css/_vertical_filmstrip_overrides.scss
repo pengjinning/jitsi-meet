@@ -2,6 +2,23 @@
  * Override other styles to support vertical filmstrip mode.
  */
 .vertical-filmstrip {
+    /*
+     * Firefox sets flex items to min-height: auto and min-width: auto,
+     * preventing flex children from shrinking like they do on other browsers.
+     * Setting min-height and min-width 0 is a workaround for the issue so
+     * Firefox behaves like other browsers.
+     * https://bugzilla.mozilla.org/show_bug.cgi?id=1043520
+     */
+    @mixin minHWAutoFix() {
+        min-height: 0;
+        min-width: 0;
+    }
+
+    #etherpad,
+    #sharedvideo {
+        text-align: left;
+    }
+
     .filmstrip {
         align-items: flex-end;
         box-sizing: border-box;
@@ -24,16 +41,11 @@
          */
         z-index: #{$tooltipsZ + 1};
 
-        &.hide-videos {
-            z-index: #{$tooltipsZ - 1};
-        }
-
         /**
          * Hide videos by making them slight to the right.
          */
         .filmstrip__videos {
             right: 0;
-            transition: right 2s;
 
             &.hidden {
                 bottom: auto;
@@ -41,18 +53,36 @@
             }
 
             /**
-             * Remove horizontal filmstrip padding used to prevent videos from
-             * overlapping the left-side toolbar. An id selector is used to
-             * match id specificity with filmstrip styles.
+             * An id selector is used to match id specificity with existing
+             * filmstrip styles.
              */
             &#remoteVideos {
+                /**
+                 * Remove horizontal filmstrip padding used to prevent videos
+                 * from overlapping the left-side toolbar. An id selector is
+                 * used to match id specificity with filmstrip styles.
+                 */
                 padding-left: 0;
+                transition: right 2s;
             }
         }
 
+        /**
+         * Re-styles the local Video and invite button to better fit the
+         * vertical filmstrip layout.
+         */
         #filmstripLocalVideo {
+            bottom: 5px;
+            display: flex;
+            flex-direction: column-reverse;
             height: auto;
-            justify-content: flex-end;
+            justify-content: flex-start;
+
+            .filmstrip__invite {
+                padding-bottom: 0px;
+                padding-top: 5px;
+                z-index: $dropdownZ;
+            }
         }
 
         /**
@@ -65,14 +95,22 @@
         }
 
         #filmstripRemoteVideos {
+            @include minHWAutoFix();
+
             display: flex;
             flex: 1;
             flex-direction: column;
             height: auto;
-            overflow-x: hidden !important;
+            justify-content: flex-end;
 
-            .remote-videos-container {
-                flex-direction: column;
+            #filmstripRemoteVideosContainer {
+                flex-direction: column-reverse;
+                /**
+                 * Add padding as a hack for Firefox not to show scrollbars when
+                 * unnecessary.
+                 */
+                padding: 1px 0;
+                overflow-x: hidden;
             }
         }
 
@@ -101,7 +139,9 @@
         }
 
         #remoteVideos {
-            flex-direction: column-reverse;
+            @include minHWAutoFix();
+
+            flex-direction: column;
             flex-grow: 1;
         }
 
@@ -153,15 +193,11 @@
      * be hidden.
      * The class opening is for when the filmstrip is transitioning from hidden
      * to visible.
-     * The class with-remote-videos is for when the filmstrip has remote videos
-     * displayed, as opposed to 1-on-1 mode where they might be hidden.
-     * The class without-remote-videos is for when the filmstrip is visible
-     * but it has no videos to display.
      */
     .video-state-indicator.moveToCorner {
         transition: right 0.5s;
 
-        &.with-filmstrip.with-remote-videos {
+        &.with-filmstrip {
             &#recordingLabel {
                 right: 200px;
             }
@@ -171,11 +207,7 @@
             }
         }
 
-        &.with-filmstrip.without-remote-videos {
-            transition-delay: 0.5s;
-        }
-
-        &.with-filmstrip.with-remote-videos.opening {
+        &.with-filmstrip.opening {
             transition: 0.9s;
             transition-timing-function: ease-in-out;
         }
@@ -217,4 +249,36 @@
             pointer-events: all;
         }
     }
+}
+
+/**
+ * Workarounds for Edge, IE11, and Firefox not handling scrolling properly
+ * with flex-direction: column-reverse. The remove videos in filmstrip should
+ * start scrolling from the bottom of the filmstrip, but in those browsers the
+ * scrolling won't happen. Per W3C spec, scrolling should happen from the
+ * bottom. As such, use css hacks to get around the css issue, with the intent
+ * being to remove the hacks as the spec is supported.
+ */
+@mixin undoColumnReverseVideos() {
+    .vertical-filmstrip {
+        #remoteVideos #filmstripRemoteVideos #filmstripRemoteVideosContainer {
+            flex-direction: column;
+        }
+    }
+}
+
+/** Firefox detection hack **/
+@-moz-document url-prefix() {
+    @include undoColumnReverseVideos();
+}
+
+/** IE11 detection hack **/
+@media screen and (-ms-high-contrast: active),
+screen and (-ms-high-contrast: none) {
+    @include undoColumnReverseVideos();
+}
+
+/** Edge detection hack **/
+@supports (-ms-ime-align:auto) {
+    @include undoColumnReverseVideos();
 }

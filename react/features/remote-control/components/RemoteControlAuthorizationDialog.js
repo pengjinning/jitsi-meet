@@ -1,10 +1,10 @@
+// @flow
+
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import {
-    Dialog,
-    hideDialog
-} from '../../base/dialog';
+import { Dialog, hideDialog } from '../../base/dialog';
 import { translate } from '../../base/i18n';
 import { getParticipantById } from '../../base/participants';
 
@@ -13,7 +13,7 @@ declare var APP: Object;
 /**
  * Implements a dialog for remote control authorization.
  */
-class RemoteControlAuthorizationDialog extends Component {
+class RemoteControlAuthorizationDialog extends Component<*> {
     /**
      * RemoteControlAuthorizationDialog component's property types.
      *
@@ -26,12 +26,12 @@ class RemoteControlAuthorizationDialog extends Component {
          *
          * @private
          */
-        _displayName: React.PropTypes.string,
+        _displayName: PropTypes.string,
 
         /**
          * Used to show/hide the dialog on cancel.
          */
-        dispatch: React.PropTypes.func,
+        dispatch: PropTypes.func,
 
         /**
          * The ID of the participant who is requesting authorization for remote
@@ -39,12 +39,12 @@ class RemoteControlAuthorizationDialog extends Component {
          *
          * @public
          */
-        participantId: React.PropTypes.string,
+        participantId: PropTypes.string,
 
         /**
          * Invoked to obtain translated strings.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
 
     /**
@@ -107,6 +107,8 @@ class RemoteControlAuthorizationDialog extends Component {
         );
     }
 
+    _onCancel: () => boolean;
+
     /**
      * Notifies the remote control module about the denial of the remote control
      * request.
@@ -120,6 +122,8 @@ class RemoteControlAuthorizationDialog extends Component {
 
         return true;
     }
+
+    _onSubmit: () => boolean;
 
     /**
      * Notifies the remote control module that the remote control request is

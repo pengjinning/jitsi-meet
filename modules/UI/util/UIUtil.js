@@ -31,7 +31,7 @@ const IndicatorFontSizes = {
 /**
  * Created by hristo on 12/22/14.
  */
- var UIUtil = {
+const UIUtil = {
 
     /**
      * Returns the available video width.
@@ -43,17 +43,18 @@ const IndicatorFontSizes = {
     /**
      * Changes the style class of the element given by id.
      */
-    buttonClick: function(id, classname) {
+    buttonClick(id, classname) {
         // add the class to the clicked element
-        $("#" + id).toggleClass(classname);
+        $(`#${id}`).toggleClass(classname);
     },
+
     /**
      * Returns the text width for the given element.
      *
      * @param el the element
      */
     getTextWidth(el) {
-        return (el.clientWidth + 1);
+        return el.clientWidth + 1;
     },
 
     /**
@@ -62,7 +63,7 @@ const IndicatorFontSizes = {
      * @param el the element
      */
     getTextHeight(el) {
-        return (el.clientHeight + 1);
+        return el.clientHeight + 1;
     },
 
     /**
@@ -78,7 +79,8 @@ const IndicatorFontSizes = {
      * Escapes the given text.
      */
     escapeHtml(unsafeText) {
-        return $('<div/>').text(unsafeText).html();
+        return $('<div/>').text(unsafeText)
+            .html();
     },
 
     /**
@@ -88,22 +90,27 @@ const IndicatorFontSizes = {
      * @returns {string} unescaped html string.
      */
     unescapeHtml(safe) {
-        return $('<div />').html(safe).text();
+        return $('<div />').html(safe)
+            .text();
     },
 
     imageToGrayScale(canvas) {
-        var context = canvas.getContext('2d');
-        var imgData = context.getImageData(0, 0, canvas.width, canvas.height);
-        var pixels  = imgData.data;
+        const context = canvas.getContext('2d');
+        const imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imgData.data;
 
-        for (var i = 0, n = pixels.length; i < n; i += 4) {
-            var grayscale
-                = pixels[i] * 0.3 + pixels[i+1] * 0.59 + pixels[i+2] * 0.11;
-            pixels[i  ] = grayscale;        // red
-            pixels[i+1] = grayscale;        // green
-            pixels[i+2] = grayscale;        // blue
+        for (let i = 0, n = pixels.length; i < n; i += 4) {
+            const grayscale
+                = (pixels[i] * 0.3)
+                    + (pixels[i + 1] * 0.59)
+                    + (pixels[i + 2] * 0.11);
+
+            pixels[i] = grayscale; // red
+            pixels[i + 1] = grayscale; // green
+            pixels[i + 2] = grayscale; // blue
             // pixels[i+3]              is alpha
         }
+
         // redraw the image in black & white
         context.putImageData(imgData, 0, 0);
     },
@@ -114,7 +121,8 @@ const IndicatorFontSizes = {
      * @param newChild the new element that will be inserted into the container
      */
     prependChild(container, newChild) {
-        var firstChild = container.childNodes[0];
+        const firstChild = container.childNodes[0];
+
         if (firstChild) {
             container.insertBefore(newChild, firstChild);
         } else {
@@ -152,6 +160,7 @@ const IndicatorFontSizes = {
      */
     setVisible(id, visible) {
         let element;
+
         if (id instanceof HTMLElement) {
             element = id;
         } else {
@@ -162,20 +171,20 @@ const IndicatorFontSizes = {
             return;
         }
 
-        if (!visible)
+        if (!visible) {
             element.classList.add('hide');
-        else if (element.classList.contains('hide')) {
+        } else if (element.classList.contains('hide')) {
             element.classList.remove('hide');
         }
 
-        let type = this._getElementDefaultDisplay(element.tagName);
-        let className = SHOW_CLASSES[type];
+        const type = this._getElementDefaultDisplay(element.tagName);
+        const className = SHOW_CLASSES[type];
 
         if (visible) {
             element.classList.add(className);
-        }
-        else if (element.classList.contains(className))
+        } else if (element.classList.contains(className)) {
             element.classList.remove(className);
+        }
     },
 
     /**
@@ -185,10 +194,11 @@ const IndicatorFontSizes = {
      * @private
      */
     _getElementDefaultDisplay(tag) {
-        let tempElement = document.createElement(tag);
+        const tempElement = document.createElement(tag);
 
         document.body.appendChild(tempElement);
-        let style = window.getComputedStyle(tempElement).display;
+        const style = window.getComputedStyle(tempElement).display;
+
         document.body.removeChild(tempElement);
 
         return style;
@@ -203,12 +213,20 @@ const IndicatorFontSizes = {
      */
     setVisibleBySelector(jquerySelector, isVisible) {
         if (jquerySelector && jquerySelector.length > 0) {
-            jquerySelector.css("visibility", isVisible ? "visible" : "hidden");
+            jquerySelector.css('visibility', isVisible ? 'visible' : 'hidden');
         }
     },
 
+    /**
+     * Redirects to a given URL.
+     *
+     * @param {string} url - The redirect URL.
+     * NOTE: Currently used to redirect to 3rd party location for
+     * authentication. In most cases redirectWithStoredParams action must be
+     * used instead of this method in order to preserve curent URL params.
+     */
     redirect(url) {
-         window.location.href = url;
+        window.location.href = url;
     },
 
     /**
@@ -262,11 +280,11 @@ const IndicatorFontSizes = {
       * @param {Object} attrs object with properties
       * @returns {String} string of html element attributes
       */
-     attrsToString(attrs) {
-         return Object.keys(attrs).map(
-             key => ` ${key}="${attrs[key]}"`
-         ).join(' ');
-     },
+    attrsToString(attrs) {
+        return (
+            Object.keys(attrs).map(key => ` ${key}="${attrs[key]}"`)
+.join(' '));
+    },
 
     /**
      * Checks if the given DOM element is currently visible. The offsetParent
@@ -276,7 +294,7 @@ const IndicatorFontSizes = {
      * @param {el} The DOM element we'd like to check for visibility
      */
     isVisible(el) {
-        return (el.offsetParent !== null);
+        return el.offsetParent !== null;
     },
 
     /**
@@ -289,25 +307,33 @@ const IndicatorFontSizes = {
      * element
      */
     animateShowElement(selector, show, hideDelay) {
-        if(show) {
-            if (!selector.is(":visible"))
-                selector.css("display", "inline-block");
+        if (show) {
+            if (!selector.is(':visible')) {
+                selector.css('display', 'inline-block');
+            }
 
             selector.fadeIn(300,
-                () => {selector.css({opacity: 1});}
+                () => {
+                    selector.css({ opacity: 1 });
+                }
             );
 
-            if (hideDelay && hideDelay > 0)
+            if (hideDelay && hideDelay > 0) {
                 setTimeout(
-                    function () {
-                        selector.fadeOut(300,
-                        () => {selector.css({opacity: 0});}
-                    );
-                }, hideDelay);
-        }
-        else {
+                    () => {
+                        selector.fadeOut(
+                            300,
+                            () => {
+                                selector.css({ opacity: 0 });
+                            });
+                    },
+                    hideDelay);
+            }
+        } else {
             selector.fadeOut(300,
-                () => {selector.css({opacity: 0});}
+                () => {
+                    selector.css({ opacity: 0 });
+                }
             );
         }
     },
@@ -318,7 +344,7 @@ const IndicatorFontSizes = {
      * @param cssValue the string value we obtain when querying css properties
      */
     parseCssInt(cssValue) {
-        return parseInt(cssValue) || 0;
+        return parseInt(cssValue, 10) || 0;
     },
 
     /**
@@ -332,8 +358,8 @@ const IndicatorFontSizes = {
             aLinkElement.attr('href', link);
         } else {
             aLinkElement.css({
-                "pointer-events": "none",
-                "cursor": "default"
+                'pointer-events': 'none',
+                'cursor': 'default'
             });
         }
     },

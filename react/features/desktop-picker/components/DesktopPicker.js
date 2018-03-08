@@ -1,86 +1,96 @@
+// @flow
+
 import Tabs from '@atlaskit/tabs';
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import { Dialog, hideDialog } from '../../base/dialog';
 import { translate } from '../../base/i18n';
 
-import { obtainDesktopSources, resetDesktopSources } from '../actions';
 import DesktopPickerPane from './DesktopPickerPane';
+import { obtainDesktopSources } from '../functions';
 
+/**
+ * The size of the requested thumbnails.
+ *
+ * @type {Object}
+ */
 const THUMBNAIL_SIZE = {
     height: 300,
     width: 300
 };
-const UPDATE_INTERVAL = 1000;
 
-const TAB_CONFIGURATIONS = [
-    {
-        /**
-         * The indicator which determines whether this tab configuration is
-         * selected by default.
-         *
-         * @type {boolean}
-         */
-        defaultSelected: true,
-        label: 'dialog.yourEntireScreen',
-        type: 'screen'
-    },
-    {
-        label: 'dialog.applicationWindow',
-        type: 'window'
-    }
-];
-const VALID_TYPES = TAB_CONFIGURATIONS.map(c => c.type);
+/**
+ * The sources polling interval in ms.
+ *
+ * @type {int}
+ */
+const UPDATE_INTERVAL = 2000;
+
+/**
+ * The default selected tab.
+ *
+ * @type {string}
+ */
+const DEFAULT_TAB_TYPE = 'screen';
+
+const TAB_LABELS = {
+    screen: 'dialog.yourEntireScreen',
+    window: 'dialog.applicationWindow'
+};
+
+const VALID_TYPES = Object.keys(TAB_LABELS);
 
 /**
  * React component for DesktopPicker.
  *
  * @extends Component
  */
-class DesktopPicker extends Component {
-    /**
-     * Default values for DesktopPicker component's properties.
-     *
-     * @static
-     */
-    static defaultProps = {
-        options: {}
-    };
-
+class DesktopPicker extends Component<*, *> {
     /**
      * DesktopPicker component's property types.
      *
      * @static
      */
     static propTypes = {
+
+        /**
+         * An array with desktop sharing sources to be displayed.
+         */
+        desktopSharingSources: PropTypes.arrayOf(PropTypes.string),
+
         /**
          * Used to request DesktopCapturerSources.
          */
-        dispatch: React.PropTypes.func,
+        dispatch: PropTypes.func,
 
         /**
          * The callback to be invoked when the component is closed or when
          * a DesktopCapturerSource has been chosen.
          */
-        onSourceChoose: React.PropTypes.func,
-
-        /**
-         * An object with options related to desktop sharing.
-         */
-        options: React.PropTypes.object,
-
-        /**
-         * An object with arrays of DesktopCapturerSources. The key should be
-         * the source type.
-         */
-        sources: React.PropTypes.object,
+        onSourceChoose: PropTypes.func,
 
         /**
          * Used to obtain translations.
          */
-        t: React.PropTypes.func
+        t: PropTypes.func
     };
+
+    _poller = null;
+
+    state = {
+        selectedSource: {},
+        sources: {},
+        types: []
+    };
+
+    /**
+     * Stores the type of the selected tab.
+     *
+     * @type {string}
+     */
+    _selectedTabType = DEFAULT_TAB_TYPE;
 
     /**
      * Initializes a new DesktopPicker instance.
@@ -91,31 +101,24 @@ class DesktopPicker extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            selectedSource: {},
-            tabsToPopulate: [],
-            typesToFetch: []
-        };
-
-        this._poller = null;
+        // Bind event handlers so they are only bound once per instance.
         this._onCloseModal = this._onCloseModal.bind(this);
         this._onPreviewClick = this._onPreviewClick.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
+        this._onTabSelected = this._onTabSelected.bind(this);
         this._updateSources = this._updateSources.bind(this);
+
+        this.state.types
+            = this._getValidTypes(this.props.desktopSharingSources);
     }
 
     /**
-     * Perform an immediate update request for DesktopCapturerSources and begin
-     * requesting updates at an interval.
+     * Starts polling.
      *
      * @inheritdoc
+     * @returns {void}
      */
-    componentWillMount() {
-        const { desktopSharingSources } = this.props.options;
-
-        this._onSourceTypesConfigChanged(
-            desktopSharingSources);
-        this._updateSources();
+    componentDidMount() {
         this._startPolling();
     }
 
@@ -129,20 +132,19 @@ class DesktopPicker extends Component {
      * @returns {void}
      */
     componentWillReceiveProps(nextProps) {
-        if (!this.state.selectedSource.id
-                && nextProps.sources.screen.length) {
+        const { desktopSharingSources } = nextProps;
+
+        /**
+         * Do only reference check in order to not calculate the types on every
+         * update. This is enough for our use case and we don't need value
+         * checking because if the value is the same we won't change the
+         * reference for the desktopSharingSources array.
+         */
+        if (desktopSharingSources !== this.props.desktopSharingSources) {
             this.setState({
-                selectedSource: {
-                    id: nextProps.sources.screen[0].id,
-                    type: 'screen'
-                }
+                types: this._getValidTypes(desktopSharingSources)
             });
         }
-
-        const { desktopSharingSources } = this.props.options;
-
-        this._onSourceTypesConfigChanged(
-            desktopSharingSources);
     }
 
     /**
@@ -152,7 +154,6 @@ class DesktopPicker extends Component {
      */
     componentWillUnmount() {
         this._stopPolling();
-        this.props.dispatch(resetDesktopSources());
     }
 
     /**
@@ -164,6 +165,7 @@ class DesktopPicker extends Component {
         return (
             <Dialog
                 isModal = { false }
+                okDisabled = { Boolean(!this.state.selectedSource.id) }
                 okTitleKey = 'dialog.Share'
                 onCancel = { this._onCloseModal }
                 onSubmit = { this._onSubmit }
@@ -175,11 +177,65 @@ class DesktopPicker extends Component {
     }
 
     /**
+     * Computates the selected source.
+     *
+     * @param {Object} sources - The available sources.
+     * @returns {Object} The selectedSource value.
+     */
+    _getSelectedSource(sources = {}) {
+        const { selectedSource } = this.state;
+
+        /**
+         * If there are no sources for this type (or no sources for any type)
+         * we can't select anything.
+         */
+        if (!Array.isArray(sources[this._selectedTabType])
+                || sources[this._selectedTabType].length <= 0) {
+            return {};
+        }
+
+        /**
+         * Select the first available source for this type in the following
+         * scenarios:
+         * 1) Nothing is yet selected.
+         * 2) Tab change.
+         * 3) The selected source is no longer available.
+         */
+        if (!selectedSource // scenario 1)
+                || selectedSource.type !== this._selectedTabType // scenario 2)
+                || !sources[this._selectedTabType].some( // scenario 3)
+                        source => source.id === selectedSource.id)) {
+            return {
+                id: sources[this._selectedTabType][0].id,
+                type: this._selectedTabType
+            };
+        }
+
+        /**
+         * For all other scenarios don't change the selection.
+         */
+        return selectedSource;
+    }
+
+    /**
+     * Extracts only the valid types from the passed {@code types}.
+     *
+     * @param {Array<string>} types - The types to filter.
+     * @returns {Array<string>} The filtered types.
+     */
+    _getValidTypes(types = []) {
+        return types.filter(
+            type => VALID_TYPES.includes(type));
+    }
+
+    _onCloseModal: (?string, string) => void;
+
+    /**
      * Dispatches an action to hide the DesktopPicker and invokes the passed in
      * callback with a selectedSource, if any.
      *
-     * @param {string} id - The id of the DesktopCapturerSource to pass into the
-     * onSourceChoose callback.
+     * @param {string} [id] - The id of the DesktopCapturerSource to pass into
+     * the onSourceChoose callback.
      * @param {string} type - The type of the DesktopCapturerSource to pass into
      * the onSourceChoose callback.
      * @returns {void}
@@ -188,6 +244,8 @@ class DesktopPicker extends Component {
         this.props.onSourceChoose(id, type);
         this.props.dispatch(hideDialog());
     }
+
+    _onPreviewClick: (string, string) => void;
 
     /**
      * Sets the currently selected DesktopCapturerSource.
@@ -205,6 +263,8 @@ class DesktopPicker extends Component {
         });
     }
 
+    _onSubmit: () => void;
+
     /**
      * Request to close the modal and execute callbacks with the selected source
      * id.
@@ -217,6 +277,24 @@ class DesktopPicker extends Component {
         this._onCloseModal(id, type);
     }
 
+    _onTabSelected: () => void;
+
+    /**
+     * Stores the selected tab and updates the selected source via
+     * {@code _getSelectedSource}.
+     *
+     * @param {int} idx - The index of the selected tab.
+     * @returns {void}
+     */
+    _onTabSelected(idx) {
+        const { types, sources } = this.state;
+
+        this._selectedTabType = types[idx];
+        this.setState({
+            selectedSource: this._getSelectedSource(sources)
+        });
+    }
+
     /**
      * Configures and renders the tabs for display.
      *
@@ -224,25 +302,28 @@ class DesktopPicker extends Component {
      * @returns {ReactElement}
      */
     _renderTabs() {
-        const { selectedSource } = this.state;
-        const { sources, t } = this.props;
+        const { selectedSource, sources, types } = this.state;
+        const { t } = this.props;
         const tabs
-            = this.state.tabsToPopulate.map(
-                ({ defaultSelected, label, type }) => {
+            = types.map(
+                type => {
                     return {
                         content: <DesktopPickerPane
                             key = { type }
                             onClick = { this._onPreviewClick }
                             onDoubleClick = { this._onCloseModal }
                             selectedSourceId = { selectedSource.id }
-                            sources = { sources[type] || [] }
+                            sources = { sources[type] }
                             type = { type } />,
-                        defaultSelected,
-                        label: t(label)
+                        defaultSelected: type === DEFAULT_TAB_TYPE,
+                        label: t(TAB_LABELS[type])
                     };
                 });
 
-        return <Tabs tabs = { tabs } />;
+        return (
+            <Tabs
+                onSelect = { this._onTabSelected }
+                tabs = { tabs } />);
     }
 
     /**
@@ -253,6 +334,7 @@ class DesktopPicker extends Component {
      */
     _startPolling() {
         this._stopPolling();
+        this._updateSources();
         this._poller = window.setInterval(this._updateSources, UPDATE_INTERVAL);
     }
 
@@ -267,54 +349,35 @@ class DesktopPicker extends Component {
         this._poller = null;
     }
 
-    /**
-     * Handles changing of allowed desktop sharing source types.
-     *
-     * @param {Array<string>} desktopSharingSourceTypes - The types that will be
-     * fetched and displayed.
-     * @returns {void}
-     */
-    _onSourceTypesConfigChanged(desktopSharingSourceTypes = []) {
-        const tabsToPopulate = TAB_CONFIGURATIONS.filter(
-            c => desktopSharingSourceTypes.includes(c.type)
-                && VALID_TYPES.includes(c.type)
-        );
-
-        this.setState({
-            tabsToPopulate,
-            typesToFetch: tabsToPopulate.map(c => c.type)
-        });
-    }
+    _updateSources: () => void;
 
     /**
-     * Dispatches an action to get currently available DesktopCapturerSources.
+     * Obtains the desktop sources and updates state with them.
      *
      * @private
      * @returns {void}
      */
     _updateSources() {
-        this.props.dispatch(obtainDesktopSources(
-            this.state.typesToFetch,
-            {
-                THUMBNAIL_SIZE
-            }
-        ));
+        const { types } = this.state;
+
+        if (types.length > 0) {
+            obtainDesktopSources(
+                this.state.types,
+                { thumbnailSize: THUMBNAIL_SIZE }
+            )
+            .then(sources => {
+                const selectedSource = this._getSelectedSource(sources);
+
+                // TODO: Maybe check if we have stopped the timer and unmounted
+                // the component.
+                this.setState({
+                    sources,
+                    selectedSource
+                });
+            })
+            .catch(() => { /* ignore */ });
+        }
     }
 }
 
-/**
- * Maps (parts of) the Redux state to the associated DesktopPicker's props.
- *
- * @param {Object} state - Redux state.
- * @private
- * @returns {{
- *     sources: Object
- * }}
- */
-function _mapStateToProps(state) {
-    return {
-        sources: state['features/desktop-picker']
-    };
-}
-
-export default translate(connect(_mapStateToProps)(DesktopPicker));
+export default translate(connect()(DesktopPicker));

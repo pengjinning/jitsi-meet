@@ -1,39 +1,62 @@
+// @flow
+
+import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Dialog } from '../../base/dialog';
 
 import { setPassword } from '../../base/conference';
+import { Dialog } from '../../base/dialog';
+
+import { _cancelPasswordRequiredPrompt } from '../actions';
 
 /**
- * Implements a React Component which prompts the user when a password is
- * required to join a conference.
+ * {@code PasswordRequiredPrompt}'s React {@code Component} prop types.
  */
-class PasswordRequiredPrompt extends Component {
+type Props = {
+
     /**
-     * PasswordRequiredPrompt component's property types.
+     * The {@code JitsiConference} which requires a password.
+     *
+     * @type {JitsiConference}
+     */
+    conference: { join: Function },
+    dispatch: Dispatch<*>
+};
+
+/**
+ * The style of the {@link TextInput} rendered by
+ * {@code PasswordRequiredPrompt}. As it requests the entry of a password, the
+ * entry should better be secure.
+ */
+const _TEXT_INPUT_PROPS = {
+    secureTextEntry: true
+};
+
+/**
+ * Implements a React {@code Component} which prompts the user when a password
+ * is required to join a conference.
+ */
+class PasswordRequiredPrompt extends Component<Props> {
+    /**
+     * {@code PasswordRequiredPrompt}'s React {@code Component} prop types.
      *
      * @static
      */
     static propTypes = {
-        /**
-         * The JitsiConference which requires a password.
-         *
-         * @type {JitsiConference}
-         */
-        conference: React.PropTypes.object,
-        dispatch: React.PropTypes.func
+        conference: PropTypes.object,
+        dispatch: PropTypes.func
     };
 
     /**
-     * Initializes a new PasswordRequiredPrompt instance.
+     * Initializes a new {@code PasswordRequiredPrompt} instance.
      *
-     * @param {Object} props - The read-only properties with which the new
-     * instance is to be initialized.
+     * @param {Props} props - The read-only React {@code Component} props with
+     * which the new instance is to be initialized.
      */
-    constructor(props) {
+    constructor(props: Props) {
         super(props);
 
-        // Bind event handlers so they are only bound once for every instance.
+        // Bind event handlers so they are only bound once per instance.
         this._onCancel = this._onCancel.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
     }
@@ -50,34 +73,40 @@ class PasswordRequiredPrompt extends Component {
                 bodyKey = 'dialog.passwordLabel'
                 onCancel = { this._onCancel }
                 onSubmit = { this._onSubmit }
+                textInputProps = { _TEXT_INPUT_PROPS }
                 titleKey = 'dialog.passwordRequired' />
         );
     }
+
+    _onCancel: () => boolean;
 
     /**
      * Notifies this prompt that it has been dismissed by cancel.
      *
      * @private
-     * @returns {boolean} True to hide this dialog/prompt; otherwise, false.
+     * @returns {boolean} If this prompt is to be closed/hidden, {@code true};
+     * otherwise, {@code false}.
      */
     _onCancel() {
-        // XXX The user has canceled this prompt for a password so we are to
-        // attempt joining the conference without a password. If the conference
-        // still requires a password to join, the user will be prompted again
-        // later.
-        return this._onSubmit(undefined);
+        this.props.dispatch(
+            _cancelPasswordRequiredPrompt(this.props.conference));
+
+        return true;
     }
+
+    _onSubmit: (?string) => boolean;
 
     /**
      * Notifies this prompt that it has been dismissed by submitting a specific
      * value.
      *
-     * @param {string} value - The submitted value.
+     * @param {string|undefined} value - The submitted value.
      * @private
-     * @returns {boolean} True to hide this dialog/prompt; otherwise, false.
+     * @returns {boolean} If this prompt is to be closed/hidden, {@code true};
+     * otherwise, {@code false}.
      */
-    _onSubmit(value) {
-        const conference = this.props.conference;
+    _onSubmit(value: ?string) {
+        const { conference }: { conference: { join: Function } } = this.props;
 
         this.props.dispatch(setPassword(conference, conference.join, value));
 
