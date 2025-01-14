@@ -15,15 +15,21 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.module.annotations.ReactModule;
 
-class AndroidSettingsModule extends ReactContextBaseJavaModule {
+@ReactModule(name = AndroidSettingsModule.NAME)
+class AndroidSettingsModule
+    extends ReactContextBaseJavaModule {
+
+    public static final String NAME = "AndroidSettings";
+
     public AndroidSettingsModule(ReactApplicationContext reactContext) {
         super(reactContext);
     }
 
     @Override
     public String getName() {
-        return "AndroidSettings";
+        return NAME;
     }
 
     @ReactMethod

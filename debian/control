@@ -16,40 +16,43 @@ Description: WebRTC JavaScript video conferences
  Videobridge to provide high quality, scalable video conferences.
  .
  It is a web interface to Jitsi Videobridge for audio and video
- forwarding and relaying, configured to work with jetty instance
- running embedded into Jitsi Videobridge
+ forwarding and relaying.
 
 Package: jitsi-meet-web-config
 Architecture: all
-Depends: openssl, openjdk-8-jre-headless | nginx | apache2
+Pre-Depends: nginx | nginx-full | nginx-extras | openresty | apache2
+Depends: openssl, curl
 Description: Configuration for web serving of Jitsi Meet
  Jitsi Meet is a WebRTC JavaScript application that uses Jitsi
  Videobridge to provide high quality, scalable video conferences.
  .
  It is a web interface to Jitsi Videobridge for audio and video
- forwarding and relaying, configured to work with jetty instance
- running embedded into Jitsi Videobridge or using a webserver Nginx or
- Apache2.
+ forwarding and relaying, using a webserver Nginx or Apache2.
  .
  This package contains configuration for Nginx to be used with
  Jitsi Meet.
 
 Package: jitsi-meet-prosody
 Architecture: all
-Depends: openssl, prosody | prosody-trunk
+Depends: openssl, prosody (>= 0.11.7) | prosody-trunk | prosody-0.12 | prosody-0.11, lua-sec, lua-basexx, lua-luaossl, lua-cjson, lua-inspect
+Replaces: jitsi-meet-tokens
 Description: Prosody configuration for Jitsi Meet
  Jitsi Meet is a WebRTC JavaScript application that uses Jitsi
  Videobridge to provide high quality, scalable video conferences.
  .
  It is a web interface to Jitsi Videobridge for audio and video
- forwarding and relaying, configured to work with jetty instance
- running embedded into Jitsi Videobridge
+ forwarding and relaying.
  .
  This package contains configuration for Prosody to be used with
  Jitsi Meet.
 
 Package: jitsi-meet-tokens
 Architecture: all
-Depends: ${misc:Depends}, prosody-trunk (>= 1nightly607), libssl-dev, luarocks, jitsi-meet-prosody
+Depends: ${misc:Depends}, prosody-trunk | prosody-0.11 | prosody-0.12 | prosody (>= 0.11.7), jitsi-meet-prosody
 Description: Prosody token authentication plugin for Jitsi Meet
 
+Package: jitsi-meet-turnserver
+Architecture: all
+Pre-Depends: jitsi-meet-web-config
+Depends: ${misc:Depends}, jitsi-meet-prosody, coturn, dnsutils
+Description: Configures coturn to be used with Jitsi Meet

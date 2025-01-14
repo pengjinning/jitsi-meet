@@ -2,10 +2,10 @@
  * Round badge.
  */
 .badge-round {
-    background-color: $toolbarBadgeBackground;
+    background-color: #165ECC;
     border-radius: 50%;
     box-sizing: border-box;
-    color: $toolbarBadgeColor;
+    color: #FFFFFF;
     // Do not inherit the font-family from the toolbar button, because it's an
     // icon style.
     font-family: $baseFontFamily;
@@ -19,380 +19,128 @@
     vertical-align: middle;
 }
 
-.toolbar-container {
-    display: block;
-    left:0;
-    min-height: 100px;
-    opacity: 0;
-    pointer-events: none;
+/**
+ * TODO: when the old filmstrip has been removed, remove the "new-" prefix.
+ */
+.new-toolbox {
+    bottom: calc((#{$newToolbarSize} * 2) * -1);
+    left: 0;
     position: absolute;
-    right:0;
-    text-align: center;
-    top:0;
-    z-index: $toolbarZ;
+    right: 0;
+    transition: bottom .3s ease-in;
+    width: 100%;
+    pointer-events: none;
+    z-index: $toolbarZ + 2;
+
+    &.shift-up {
+        bottom: calc(((#{$newToolbarSize} + 30px) * 2) * -1);
+
+        .toolbox-content {
+            margin-bottom: 46px;
+        }
+    }
+
+    &.visible {
+        bottom: 0;
+    }
+
+    &.no-buttons {
+        display: none;
+    }
 }
 
-/**
- * Common toolbar styles.
- */
-.toolbar {
-    height: 100%;
-    pointer-events: auto;
+.toolbox-content {
+    align-items: center;
+    box-sizing: border-box;
+    display: flex;
+    margin-bottom: 16px;
     position: relative;
     z-index: $toolbarZ;
+    pointer-events: none;
 
-    /**
-     * Ensure nested elements that don't have a button class, maybe because they
-     * are wrapped in a React Element, still display in a line.
-     */
-    > div {
+    .toolbox-button-wth-dialog {
         display: inline-block;
     }
+}
 
-    /**
-     * Always on top overrides.
-     */
-    &.always-on-top {
-        /**
-         * Toolbar button styles for always on top.
-         */
-        .button {
-            font-size: $alwaysOnTopToolbarFontSize;
-            height: $alwaysOnTopToolbarSize;
-            line-height: $alwaysOnTopToolbarSize;
-            width: $alwaysOnTopToolbarSize;
-            &_hangup, &_hangup:hover {
-                font-size: $alwaysOnTopToolbarFontSize;
-            }
-        }
-    }
+.toolbar-button-with-badge {
+    display: inline-block;
+    position: relative;
 
-    /**
-     * Toolbar button styles.
-     */
-    .button {
-        color: $toolbarButtonColor;
-        cursor: pointer;
-        z-index: $zindex1;
-        display: inline-block;
-        font-size: $toolbarFontSize;
-        height: $defaultToolbarSize;
-        line-height: $defaultToolbarSize;
-        position: relative;
-        text-align: center;
-        top:0px;
-        vertical-align: middle;
-        width: $defaultToolbarSize;
-
-        &[disabled] {
-            opacity: 0.5;
-        }
-
-        &:hover, &:active {
-            color: $toolbarButtonColor;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        &_hangup, &_hangup:hover {
-            color: $hangupColor;
-            font-size: $hangupFontSize;
-        }
-
-        &:not(.toggled) {
-            &:hover, &:active {
-                // sum opacity with background layer should give us 0.8
-                background: $toolbarSelectBackground;
-            }
-        }
-
-        &.toggled {
-            background: $toolbarToggleBackground;
-
-            &.icon-camera {
-                @extend .icon-camera-disabled;
-            }
-
-            &.icon-full-screen {
-                @extend .icon-exit-full-screen;
-            }
-
-            &.icon-microphone {
-                @extend .icon-mic-disabled;
-            }
-        }
-
-        &.unclickable {
-            cursor: default;
-
-            &:hover, &:active, &.selected {
-                background: none;
-                cursor: default;
-            }
-        }
-    }
-
-    /**
-     * Primary toolbar styles.
-     */
-    &_primary {
-        background-color: $toolbarBackground;
-        position: absolute;
-        left: 50%;
-        top: 30px;
-        display: inline-block;
-        width: auto;
-        height: $defaultToolbarSize;
-        border-radius: 3px;
-        opacity: 0;
-
-        &.always-on-top {
-            height: $alwaysOnTopToolbarSize;
-            top: 10px;
-        }
-
-        @include transform(translateX(-50%));
-
-        > a:first-child.button,
-        > div:first-child .button {
-            border-bottom-left-radius: 3px;
-            border-top-left-radius: 3px;
-        }
-
-        > a:last-child.button,
-        > div:last-child .button {
-            border-bottom-right-radius: 3px;
-            border-top-right-radius: 3px;
-        }
-    }
-
-    &_primary a.button:last-child::after {
-        content: none;
-    }
-
-    /**
-     * Secondary toolbar styles.
-     */
-    &_secondary {
-        background-color: $secondaryToolbarBg;
-        position: absolute;
-        align-items: center;
-        box-sizing: border-box;
-        display: -moz-box;
-        display: -ms-flexbox;
-        display: -webkit-box;
-        display: -webkit-flex;
-        display: flex;
-        flex-direction: column;
-        flex-wrap: nowrap;
-        height: 100%;
-        justify-content: flex-start;
-        left: 0;
-        padding-top: 24px;
-        pointer-events: none;
-        top: 0;
-        transform: translateX(-100%);
-        width: $defaultToolbarSize;
-        -webkit-transform: translateX(-100%);
-
-        .button {
-            font-size: $secToolbarFontSize;
-            height: $secToolbarLineHeight;
-            line-height: $secToolbarLineHeight;
-        }
-
-        > * {
-            pointer-events: auto
-        }
-
-        .button.toggled:not(.icon-raised-hand):not(.button-active) {
-            background: $secondaryToolbarBg;
-            cursor: pointer;
-            text-decoration: none;
-
-            &.unclickable {
-                cursor: default;
-
-                &:hover, &:active, &.selected {
-                    background: none;
-                    cursor: default;
-                }
-            }
-        }
-    }
-
-    /**
-     * Styles the toolbar in filmstrip-only mode.
-     */
-    &_filmstrip-only {
-        background-color: $toolbarBackground;
-        border-radius: 3px;
-        display: inline-block;
-        height: auto;
-        width: $defaultFilmStripOnlyToolbarSize;
-
-        .button {
-            height: 37px;
-            line-height: 37px !important;
-            width: 37px;
-        }
-
-        .button-popover-message {
-            width: 100px;
-        }
-
-        .toolbar-button-wrapper:first-child .button {
-            border-top-left-radius: 3px;
-            border-top-right-radius: 3px;
-        }
-        .toolbar-button-wrapper:last-child .button {
-            border-bottom-right-radius: 3px;
-            border-bottom-left-radius: 3px;
-        }
-    }
-
-    /**
-     * Toolbar specific round badge.
-     */
     .badge-round {
-        bottom: 9px;
+        bottom: -5px;
+        font-size: 12px;
+        line-height: 20px;
+        min-width: 20px;
+        pointer-events: none;
         position: absolute;
-        right: 9px;
+        right: -5px;
     }
 }
 
-.filmstrip-only {
-    .toolbox,
-    .toolbox-toolbars {
-        align-items: center;
-        display: flex;
+.toolbox-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+    max-width: 100%;
+    pointer-events: all;
+    border-radius: 6px;
+
+    .toolbox-content-items {
+        @include ltr;
     }
 }
 
-.subject {
-    background: linear-gradient(to bottom, rgba(255,255,255,.85) , rgba(255,255,255,.35));
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-    box-shadow: 0 0 2px #000000, 0 0 10px #000000;
-    margin-left: 40%;
-    margin-right: 40%;
-    padding: 5px;
-    position: relative;
-    text-align: center;
-    width: auto;
-    z-index: $zindex3;
+.toolbox-content-wrapper::after {
+    content: '';
+    background: $newToolbarBackgroundColor;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
 
-    &.subject_slide-in {
-        top: 80px;
-        @include transition(top .3s ease-in);
+.overflow-menu-hr {
+    border-top: 1px solid #4C4D50;
+    border-bottom: 0;
+    margin: 8px 0;
+}
+
+div.hangup-button {
+    background-color: #CB2233;
+
+    @media (hover: hover) and (pointer: fine) {
+        &:hover {
+            background-color: #E04757;
+        }
+
+        &:active {
+            background-color: #A21B29;
+        }
     }
 
-    &.subject_slide-out {
-        top: 0;
-        @include transition(top .3s ease-out);
+    svg {
+        fill: #fff;
     }
 }
 
-#toolbar_button_profile {
-    height: $toolbarAvatarSize + 2*$toolbarAvatarPadding;
+div.hangup-menu-button {
+    background-color: #CB2233;
+
+    @media (hover: hover) and (pointer: fine) {
+        &:hover {
+            background-color: #E04757;
+        }
+
+        &:active {
+            background-color: #A21B29;
+        }
+    }
+
+    svg {
+        fill: #fff;
+    }
 }
 
-a.button>#avatar {
-    border-radius: 50%;
-    padding-bottom: $toolbarAvatarPadding;
-    padding-top: $toolbarAvatarPadding;
-    width: $toolbarAvatarSize;
-}
-
-#feedbackButton {
-    margin-top: auto;
-}
-
-/**
- * START of slide in animation for extended toolbar.
- */
-@include keyframes(slideInX) {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(0%); }
-}
-
-.slideInX {
-  @include animation('slideInX .5s forwards');
-}
-
-@include keyframes(slideOutX) {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-100%); }
-}
-
-.slideOutX {
-  @include animation('slideOutX .5s forwards');
-}
-
-@include keyframes(slideInExtX) {
-    0% { transform: translateX(-500%); }
-    100% { transform: translateX(0%); }
-}
-
-.slideInExtX {
-  @include animation('slideInExtX .5s forwards');
-}
-
-@include keyframes(slideOutExtX) {
-    0% { transform: translateX(0%); }
-    100% { transform: translateX(-500%); }
-}
-
-.slideOutExtX {
-  @include animation('slideOutExtX .5s forwards');
-}
-
-/**
- * END of slide out animation for extended toolbar.
- */
-
-/**
- * START of slide in / out animation for main toolbar.
- */
-@include keyframes(slideInY) {
-    100% { transform: translateY(0%); }
-}
-
-.slideInY {
-  @include animation('slideInY .5s forwards');
-}
-
-@include keyframes(slideOutY) {
-    0% { transform: translateY(0%); }
-    100% { transform: translateY(-100%); }
-}
-
-.slideOutY {
-    @include animation('slideOutY .5s forwards');
-}
-/**
- * END of slide in / out animation for main toolbar.
- */
-
-/**
- * START of slide in animation for extended toolbar panel.
- */
-@include keyframes(slideInExt) {
-    from { width: 0px; }
-    to   { width: $sidebarWidth; } // TO FIX: Make this value a percentage.
-}
-
-.slideInExt {
-    @include animation("slideInExt .5s forwards");
-}
-
-@include keyframes(slideOutExt) {
-  from { width: $sidebarWidth; } // TO FIX: Make this value a percentage.
-  to   { width: 0px; }
-}
-
-.slideOutExt {
-  @include animation("slideOutExt .5s forwards");
+.profile-button-avatar {
+    align-items: center;
 }
 
 /**
@@ -408,4 +156,49 @@ a.button>#avatar {
     opacity: 0;
 
     @include transition(all .3s ease-out);
+}
+
+/**
+ * Audio and video buttons do not have toggled state.
+ */
+.audio-preview,
+.video-preview {
+    .toolbox-icon.toggled {
+        background: none;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    }
+
+}
+
+/**
+ * On small mobile devices make the toolbar full width and pad the invite prompt.
+ */
+.toolbox-content-mobile {
+    @media (max-width: 500px) {
+        margin-bottom: 0;
+
+        .toolbox-content-wrapper {
+            width: 100%;
+        }
+
+        .toolbox-content-items {
+            @include ltr;
+            border-radius: 0;
+            display: flex;
+            justify-content: space-evenly;
+            padding: 8px 0;
+            width: 100%;
+        }
+
+        .invite-more-container {
+            margin: 0 16px 8px;
+        }
+
+        .invite-more-container.elevated {
+            margin-bottom: 52px;
+        }
+    }
 }

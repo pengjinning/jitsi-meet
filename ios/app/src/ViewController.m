@@ -1,5 +1,5 @@
 /*
- * Copyright @ 2017-present Atlassian Pty Ltd
+ * Copyright @ 2017-present 8x8, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
+@import CoreSpotlight;
+@import MobileCoreServices;
+@import Intents;  // Needed for NSUserActivity suggestedInvocationPhrase
+
+@import JitsiMeetSDK;
+
+#import "Types.h"
 #import "ViewController.h"
 
-@interface ViewController ()
-
-@end
 
 @implementation ViewController
 
@@ -26,48 +30,120 @@
     [super viewDidLoad];
 
     JitsiMeetView *view = (JitsiMeetView *) self.view;
-
     view.delegate = self;
-    // As this is the Jitsi Meet app (i.e. not the Jitsi Meet SDK), we do want
-    // the Welcome page to be enabled. It defaults to disabled in the SDK at the
-    // time of this writing but it is clearer to be explicit about what we want
-    // anyway.
-    view.welcomePageEnabled = YES;
-    [view loadURL:nil];
+
+    [view join:[[JitsiMeet sharedInstance] getInitialConferenceOptions]];
 }
 
-#if DEBUG
+// JitsiMeetViewDelegate
 
-void _onJitsiMeetViewDelegateEvent(NSString *name, NSDictionary *data) {
+- (void)_onJitsiMeetViewDelegateEvent:(NSString *)name
+                             withData:(NSDictionary *)data {
     NSLog(
         @"[%s:%d] JitsiMeetViewDelegate %@ %@",
         __FILE__, __LINE__, name, data);
-}
 
-- (void)conferenceFailed:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"CONFERENCE_FAILED", data);
+#if DEBUG
+    NSAssert(
+        [NSThread isMainThread],
+        @"JitsiMeetViewDelegate %@ method invoked on a non-main thread",
+        name);
+#endif
 }
 
 - (void)conferenceJoined:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"CONFERENCE_JOINED", data);
+    [self _onJitsiMeetViewDelegateEvent:@"CONFERENCE_JOINED" withData:data];
+
+    // Register a NSUserActivity for this conference so it can be invoked as a
+    // Siri shortcut.
+    NSUserActivity *userActivity
+      = [[NSUserActivity alloc] initWithActivityType:JitsiMeetConferenceActivityType];
+
+    NSString *urlStr = data[@"url"];
+    NSURL *url = [NSURL URLWithString:urlStr];
+    NSString *conference = [url.pathComponents lastObject];
+
+    userActivity.title = [NSString stringWithFormat:@"Join %@", conference];
+    userActivity.suggestedInvocationPhrase = @"Join my Jitsi meeting";
+    userActivity.userInfo = @{@"url": urlStr};
+    [userActivity setEligibleForSearch:YES];
+    [userActivity setEligibleForPrediction:YES];
+    [userActivity setPersistentIdentifier:urlStr];
+
+    // Subtitle
+    CSSearchableItemAttributeSet *attributes
+      = [[CSSearchableItemAttributeSet alloc] initWithItemContentType:(NSString *)kUTTypeItem];
+    attributes.contentDescription = urlStr;
+    userActivity.contentAttributeSet = attributes;
+
+    self.userActivity = userActivity;
+    [userActivity becomeCurrent];
 }
 
-- (void)conferenceLeft:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"CONFERENCE_LEFT", data);
+- (void)conferenceTerminated:(NSDictionary *)data {
+    [self _onJitsiMeetViewDelegateEvent:@"CONFERENCE_TERMINATED" withData:data];
 }
 
 - (void)conferenceWillJoin:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"CONFERENCE_WILL_JOIN", data);
+    [self _onJitsiMeetViewDelegateEvent:@"CONFERENCE_WILL_JOIN" withData:data];
 }
 
-- (void)conferenceWillLeave:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"CONFERENCE_WILL_LEAVE", data);
-}
+// - (void)customOverflowMenuButtonPressed:(NSDictionary *)data {
+//     [self _onJitsiMeetViewDelegateEvent:@"CUSTOM_OVERFLOW_MENU_BUTTON_PRESSED" withData:data];
+// }
 
-- (void)loadConfigError:(NSDictionary *)data {
-    _onJitsiMeetViewDelegateEvent(@"LOAD_CONFIG_ERROR", data);
+#if 0
+- (void)enterPictureInPicture:(NSDictionary *)data {
+    [self _onJitsiMeetViewDelegateEvent:@"ENTER_PICTURE_IN_PICTURE" withData:data];
 }
-
 #endif
+
+- (void)readyToClose:(NSDictionary *)data {
+    [self _onJitsiMeetViewDelegateEvent:@"READY_TO_CLOSE" withData:data];
+}
+
+// - (void)transcriptionChunkReceived:(NSDictionary *)data {
+//     [self _onJitsiMeetViewDelegateEvent:@"TRANSCRIPTION_CHUNK_RECEIVED" withData:data];
+// }
+
+- (void)participantJoined:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Participant joined: ", data[@"participantId"]);
+}
+
+- (void)participantLeft:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Participant left: ", data[@"participantId"]);
+}
+
+- (void)audioMutedChanged:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Audio muted changed: ", data[@"muted"]);
+}
+
+- (void)endpointTextMessageReceived:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Endpoint text message received: ", data);
+}
+
+- (void)screenShareToggled:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Screen share toggled: ", data);
+}
+
+- (void)chatMessageReceived:(NSDictionary *)data {
+    NSLog(@"%@%@", @"Chat message received: ", data);
+}
+
+- (void)chatToggled:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Chat toggled: ", data);
+}
+
+- (void)videoMutedChanged:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Video muted changed: ", data[@"muted"]);
+}
+
+
+#pragma mark - Helpers
+
+- (void)terminate {
+    JitsiMeetView *view = (JitsiMeetView *) self.view;
+    [view leave];
+}
 
 @end

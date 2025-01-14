@@ -1,53 +1,14 @@
-/* global $, interfaceConfig */
+/* global APP, interfaceConfig */
 
-import VideoLayout from '../videolayout/VideoLayout';
-import LargeContainer from '../videolayout/LargeContainer';
-import UIEvents from '../../../service/UI/UIEvents';
+import $ from 'jquery';
+
+import { setDocumentEditingState } from '../../../react/features/etherpad/actions';
+import { getSharedDocumentUrl } from '../../../react/features/etherpad/functions';
+import { getToolboxHeight } from '../../../react/features/toolbox/functions.web';
 import Filmstrip from '../videolayout/Filmstrip';
+import LargeContainer from '../videolayout/LargeContainer';
+import VideoLayout from '../videolayout/VideoLayout';
 
-/**
- * Etherpad options.
- */
-const options = $.param({
-    showControns: true,
-    showChat: false,
-    showLineNumbers: true,
-    useMonospaceFont: false
-});
-
-/**
- *
- */
-function bubbleIframeMouseMove(iframe) {
-    const existingOnMouseMove = iframe.contentWindow.onmousemove;
-
-    iframe.contentWindow.onmousemove = function(e) {
-        if (existingOnMouseMove) {
-            existingOnMouseMove(e);
-        }
-        const evt = document.createEvent('MouseEvents');
-        const boundingClientRect = iframe.getBoundingClientRect();
-
-        evt.initMouseEvent(
-            'mousemove',
-            true, // bubbles
-            false, // not cancelable
-            window,
-            e.detail,
-            e.screenX,
-            e.screenY,
-            e.clientX + boundingClientRect.left,
-            e.clientY + boundingClientRect.top,
-            e.ctrlKey,
-            e.altKey,
-            e.shiftKey,
-            e.metaKey,
-            e.button,
-            null // no related element
-        );
-        iframe.dispatchEvent(evt);
-    };
-}
 
 /**
  * Default Etherpad frame width.
@@ -68,39 +29,20 @@ class Etherpad extends LargeContainer {
     /**
      * Creates new Etherpad object
      */
-    constructor(domain, name) {
+    constructor(url) {
         super();
 
         const iframe = document.createElement('iframe');
 
         iframe.id = 'etherpadIFrame';
-        iframe.src = `${domain + name}?${options}`;
-        iframe.frameBorder = 0;
+        iframe.src = url;
+        iframe.style.border = 0;
         iframe.scrolling = 'no';
         iframe.width = DEFAULT_WIDTH;
         iframe.height = DEFAULT_HEIGHT;
         iframe.setAttribute('style', 'visibility: hidden;');
 
         this.container.appendChild(iframe);
-
-        iframe.onload = function() {
-            document.domain = document.domain;
-            bubbleIframeMouseMove(iframe);
-
-            setTimeout(() => {
-                const doc = iframe.contentDocument;
-
-                // the iframes inside of the etherpad are
-                // not yet loaded when the etherpad iframe is loaded
-                const outer = doc.getElementsByName('ace_outer')[0];
-
-                bubbleIframeMouseMove(outer);
-
-                const inner = doc.getElementsByName('ace_inner')[0];
-
-                bubbleIframeMouseMove(inner);
-            }, 2000);
-        };
 
         this.iframe = iframe;
     }
@@ -126,8 +68,8 @@ class Etherpad extends LargeContainer {
         let height, width;
 
         if (interfaceConfig.VERTICAL_FILMSTRIP) {
-            height = containerHeight;
-            width = containerWidth - Filmstrip.getFilmstripWidth();
+            height = containerHeight - getToolboxHeight();
+            width = containerWidth - Filmstrip.getVerticalFilmstripWidth();
         } else {
             height = containerHeight - Filmstrip.getFilmstripHeight();
             width = containerWidth;
@@ -152,6 +94,9 @@ class Etherpad extends LargeContainer {
                 document.body.style.background = '#eeeeee';
                 $iframe.css({ visibility: 'visible' });
                 $container.css({ zIndex: 2 });
+
+                APP.store.dispatch(setDocumentEditingState(true));
+
                 resolve();
             });
         });
@@ -170,6 +115,9 @@ class Etherpad extends LargeContainer {
             $iframe.fadeOut(300, () => {
                 $iframe.css({ visibility: 'hidden' });
                 $container.css({ zIndex: 0 });
+
+                APP.store.dispatch(setDocumentEditingState(false));
+
                 resolve();
             });
         });
@@ -190,14 +138,7 @@ export default class EtherpadManager {
     /**
      *
      */
-    constructor(domain, name, eventEmitter) {
-        if (!domain || !name) {
-            throw new Error('missing domain or name');
-        }
-
-        this.domain = domain;
-        this.name = name;
-        this.eventEmitter = eventEmitter;
+    constructor() {
         this.etherpad = null;
     }
 
@@ -219,7 +160,7 @@ export default class EtherpadManager {
      * Create new Etherpad frame.
      */
     openEtherpad() {
-        this.etherpad = new Etherpad(this.domain, this.name);
+        this.etherpad = new Etherpad(getSharedDocumentUrl(APP.store.getState));
         VideoLayout.addLargeVideoContainer(
             ETHERPAD_CONTAINER_TYPE,
             this.etherpad
@@ -240,7 +181,6 @@ export default class EtherpadManager {
         VideoLayout.showLargeVideoContainer(
             ETHERPAD_CONTAINER_TYPE, !isVisible);
 
-        this.eventEmitter
-            .emit(UIEvents.TOGGLED_SHARED_DOCUMENT, !isVisible);
+        APP.store.dispatch(setDocumentEditingState(!isVisible));
     }
 }

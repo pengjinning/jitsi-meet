@@ -3,9 +3,25 @@
  * none is applied. Other browsers already support selecting within inputs while
  * user-select is none. As such, disallow user-select except on inputs.
  */
-*:not(input) {
+* {
     -webkit-user-select: none;
     user-select: none;
+
+    // Firefox only
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, .5) transparent;
+}
+
+input,
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+html {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
 }
 
 body {
@@ -15,11 +31,31 @@ body {
     font-size: 12px;
     font-weight: 400;
     overflow: hidden;
-    color: $defaultColor;
-    background: $defaultBackground;
-    &.filmstrip-only {
-        background: transparent;
+    color: #F1F1F1;
+    background: #040404; // should match DEFAULT_BACKGROUND from interface_config
+}
+
+/**
+ * This will hide the focus indicator if an element receives focus via the mouse,
+ * but it will still show up on keyboard focus, thus preserving accessibility.
+ */
+.js-focus-visible :focus:not(.focus-visible) {
+  outline: none;
+}
+
+.jitsi-icon {
+    &-default svg {
+        fill: white;
     }
+}
+
+.disabled .jitsi-icon svg {
+    fill: #929292;
+}
+
+.jitsi-icon.gray svg {
+    fill: #5E6D7A;
+    cursor: pointer;
 }
 
 p {
@@ -28,14 +64,6 @@ p {
 
 body, input, textarea, keygen, select, button {
     font-family: $baseFontFamily !important;
-}
-
-#nowebrtc {
-    display:none;
-}
-
-.no-fa-video-camera, .fa-microphone-slash {
-    color: #636363;
 }
 
 button, input, select, textarea {
@@ -50,7 +78,6 @@ input[type="reset"], input[type="submit"] {
 }
 
 textarea {
-    overflow: hidden;
     word-wrap: break-word;
     resize: none;
     line-height: 1.5em;
@@ -63,7 +90,7 @@ input[type='text'], input[type='password'], textarea {
 
 button {
     color: #FFF;
-    background-color: $buttonBackground;
+    background-color: #44A5FF;
     border-radius: $borderRadius;
 
     &.no-icon {
@@ -88,14 +115,23 @@ form {
 }
 
 .leftwatermark {
-    left: $defaultToolbarSize;
-    margin-left: 10px;
-    background-image: url($defaultWatermarkLink);
+    max-width: 140px;
+    max-height:70px;
+    left: 32px;
+    top: 32px;
     background-position: center left;
+    background-repeat: no-repeat;
+    background-size: contain;
+
+    &.no-margin {
+        left:0;
+        top:0;
+    }
 }
 
 .rightwatermark {
-    right: 15;
+    right: 32px;
+    top: 32px;
     background-position: center right;
 }
 
@@ -106,32 +142,7 @@ form {
     font-size: 11pt;
     color: rgba(255,255,255,.50);
     text-decoration: none;
-    z-index: $poweredByZ;
-}
-
-.connected {
-    color: #21B9FC;
-    font-size: 12px;
-}
-
-.lastN, .disconnected {
-    color: #a3a3a3;
-    font-size: 12px;
-}
-
-/**
-* Dialogs fade
-*/
-.aui-blanket {
-    background: #000;
-    transition: opacity 0.2s, visibility 0.2s;
-    transition-delay: 0.1s;
-    visibility: visible;
-}
-
-#inviteLinkRef {
-    -webkit-user-select: text;
-    user-select: text;
+    z-index: 100;
 }
 
 /**
@@ -140,6 +151,7 @@ form {
 ::-webkit-scrollbar {
     background: transparent;
     width: 7px;
+    height: $scrollHeight;
 }
 
 ::-webkit-scrollbar-button {
@@ -155,6 +167,24 @@ form {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, .5);
+    background: #3D3D3D;
     border-radius: 4px;
+}
+
+/* Necessary for the new icons to work properly. */
+.jitsi-icon svg path {
+    fill: inherit !important;
+}
+
+.sr-only {
+    border: 0 !important;
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    clip-path: inset(50%) !important;
+    height: 1px !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    position: absolute !important;
+    width: 1px !important;
+    white-space: nowrap !important;
 }

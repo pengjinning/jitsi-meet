@@ -1,39 +1,53 @@
-/* global $, APP, JitsiMeetJS */
+/* global APP */
 /* eslint-disable no-unused-vars */
+import Logger from '@jitsi/logger';
+import $ from 'jquery';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { I18nextProvider } from 'react-i18next';
 import { Provider } from 'react-redux';
 
-import { PresenceLabel } from '../../../react/features/presence-status';
-/* eslint-enable no-unused-vars */
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
-
+import { createScreenSharingIssueEvent } from '../../../react/features/analytics/AnalyticsEvents';
+import { sendAnalytics } from '../../../react/features/analytics/functions';
+import Avatar from '../../../react/features/base/avatar/components/Avatar';
+import theme from '../../../react/features/base/components/themes/participantsPaneTheme.json';
+import { getSsrcRewritingFeatureFlag } from '../../../react/features/base/config/functions.any';
+import i18next from '../../../react/features/base/i18n/i18next';
+import { JitsiTrackEvents } from '../../../react/features/base/lib-jitsi-meet';
+import { VIDEO_TYPE } from '../../../react/features/base/media/constants';
 import {
-    JitsiParticipantConnectionStatus
-} from '../../../react/features/base/lib-jitsi-meet';
+    getLocalParticipant,
+    getParticipantById,
+    getParticipantDisplayName,
+    isLocalScreenshareParticipant,
+    isScreenShareParticipant
+} from '../../../react/features/base/participants/functions';
+import { getHideSelfView } from '../../../react/features/base/settings/functions.any';
+import { trackStreamingStatusChanged } from '../../../react/features/base/tracks/actions.any';
+import { getVideoTrackByParticipant } from '../../../react/features/base/tracks/functions.any';
+import { CHAT_SIZE } from '../../../react/features/chat/constants';
 import {
-    getAvatarURLByParticipantId
-} from '../../../react/features/base/participants';
+    isTrackStreamingStatusActive,
+    isTrackStreamingStatusInactive,
+    isTrackStreamingStatusInterrupted
+} from '../../../react/features/connection-indicator/functions';
+import { FILMSTRIP_BREAKPOINT } from '../../../react/features/filmstrip/constants';
+import { getVerticalViewMaxWidth, isFilmstripResizable } from '../../../react/features/filmstrip/functions';
 import {
     updateKnownLargeVideoResolution
-} from '../../../react/features/large-video';
+} from '../../../react/features/large-video/actions';
+import { getParticipantsPaneOpen } from '../../../react/features/participants-pane/functions';
+import PresenceLabel from '../../../react/features/presence-status/components/PresenceLabel';
+import { shouldDisplayTileView } from '../../../react/features/video-layout/functions.any';
+/* eslint-enable no-unused-vars */
 import { createDeferred } from '../../util/helpers';
-import UIEvents from '../../../service/UI/UIEvents';
-import UIUtil from '../util/UIUtil';
-import { VideoContainer, VIDEO_CONTAINER_TYPE } from './VideoContainer';
-
 import AudioLevels from '../audio_levels/AudioLevels';
 
-const DESKTOP_CONTAINER_TYPE = 'desktop';
+import { VIDEO_CONTAINER_TYPE, VideoContainer } from './VideoContainer';
 
-/**
- * The time interval in milliseconds to check the video resolution of the video
- * being displayed.
- *
- * @type {number}
- */
-const VIDEO_RESOLUTION_POLL_INTERVAL = 2000;
+const logger = Logger.getLogger(__filename);
+
+const DESKTOP_CONTAINER_TYPE = 'desktop';
 
 /**
  * Manager for all Large containers.
@@ -54,27 +68,48 @@ export default class LargeVideoManager {
     /**
      *
      */
-    constructor(emitter) {
+    constructor() {
         /**
          * The map of <tt>LargeContainer</tt>s where the key is the video
          * container type.
          * @type {Object.<string, LargeContainer>}
          */
         this.containers = {};
-        this.eventEmitter = emitter;
 
         this.state = VIDEO_CONTAINER_TYPE;
 
         // FIXME: We are passing resizeContainer as parameter which is calling
         // Container.resize. Probably there's better way to implement this.
-        this.videoContainer = new VideoContainer(
-            () => this.resizeContainer(VIDEO_CONTAINER_TYPE), emitter);
+        this.videoContainer = new VideoContainer(() => this.resizeContainer(VIDEO_CONTAINER_TYPE));
         this.addContainer(VIDEO_CONTAINER_TYPE, this.videoContainer);
 
         // use the same video container to handle desktop tracks
         this.addContainer(DESKTOP_CONTAINER_TYPE, this.videoContainer);
 
+        /**
+         * The preferred width passed as an argument to {@link updateContainerSize}.
+         *
+         * @type {number|undefined}
+         */
+        this.preferredWidth = undefined;
+
+        /**
+         * The preferred height passed as an argument to {@link updateContainerSize}.
+         *
+         * @type {number|undefined}
+         */
+        this.preferredHeight = undefined;
+
+        /**
+         * The calculated width that will be used for the large video.
+         * @type {number}
+         */
         this.width = 0;
+
+        /**
+         * The calculated height that will be used for the large video.
+         * @type {number}
+         */
         this.height = 0;
 
         /**
@@ -85,16 +120,20 @@ export default class LargeVideoManager {
          */
         this._videoAspectRatio = 0;
 
-        this.$container = $('#largeVideoContainer');
+        /**
+         * The video track in effect.
+         * This is used to add and remove listeners on track streaming status change.
+         *
+         * @type {Object}
+         */
+        this.videoTrack = undefined;
 
-        this.$container.css({
-            display: 'inline-block'
-        });
+        this.container = document.getElementById('largeVideoContainer');
 
-        this.$container.hover(
-            e => this.onHoverIn(e),
-            e => this.onHoverOut(e)
-        );
+        this.container.style.display = 'inline-block';
+
+        this.container.addEventListener('mouseenter', e => this.onHoverIn(e));
+        this.container.addEventListener('mouseleave', e => this.onHoverOut(e));
 
         // Bind event handler so it is only bound once for every instance.
         this._onVideoResolutionUpdate
@@ -102,33 +141,34 @@ export default class LargeVideoManager {
 
         this.videoContainer.addResizeListener(this._onVideoResolutionUpdate);
 
-        if (!JitsiMeetJS.util.RTCUIHelper.isResizeEventSupported()) {
-            /**
-             * An interval for polling if the displayed video resolution is or
-             * is not high-definition. For browsers that do not support video
-             * resize events, polling is the fallback.
-             *
-             * @private
-             * @type {timeoutId}
-             */
-            this._updateVideoResolutionInterval = window.setInterval(
-                this._onVideoResolutionUpdate,
-                VIDEO_RESOLUTION_POLL_INTERVAL);
-        }
+        this._dominantSpeakerAvatarContainer
+            = document.getElementById('dominantSpeakerAvatarContainer');
     }
 
     /**
-     * Stops any polling intervals on the instance and removes any
-     * listeners registered on child components, including React Components.
+     * Removes any listeners registered on child components, including
+     * React Components.
      *
      * @returns {void}
      */
     destroy() {
-        window.clearInterval(this._updateVideoResolutionInterval);
-        this.videoContainer.removeResizeListener(
-            this._onVideoResolutionUpdate);
+        this.videoContainer.removeResizeListener(this._onVideoResolutionUpdate);
+
+        // Remove track streaming status listener.
+        // TODO: when this class is converted to a function react component,
+        // use a custom hook to update a local track streaming status.
+        if (this.videoTrack && !this.videoTrack.local) {
+            this.videoTrack.jitsiTrack.off(JitsiTrackEvents.TRACK_STREAMING_STATUS_CHANGED,
+                this.handleTrackStreamingStatusChanged);
+            APP.store.dispatch(trackStreamingStatusChanged(this.videoTrack.jitsiTrack,
+                this.videoTrack.jitsiTrack.getTrackStreamingStatus()));
+        }
 
         this.removePresenceLabel();
+
+        ReactDOM.unmountComponentAtNode(this._dominantSpeakerAvatarContainer);
+
+        this.container.style.display = 'none';
     }
 
     /**
@@ -156,31 +196,18 @@ export default class LargeVideoManager {
     }
 
     /**
-     * Called when the media connection has been interrupted.
-     */
-    onVideoInterrupted() {
-        this.enableLocalConnectionProblemFilter(true);
-        this._setLocalConnectionMessage('connection.RECONNECTING');
-
-        // Show the message only if the video is currently being displayed
-        this.showLocalConnectionMessage(
-            LargeVideoManager.isVideoContainer(this.state));
-    }
-
-    /**
-     * Called when the media connection has been restored.
-     */
-    onVideoRestored() {
-        this.enableLocalConnectionProblemFilter(false);
-        this.showLocalConnectionMessage(false);
-    }
-
-    /**
      *
      */
     get id() {
         const container = this.getCurrentContainer();
 
+        // If a user switch for large video is in progress then provide what
+        // will be the end result of the update.
+        if (this.updateInProcess
+            && this.newStreamData
+            && this.newStreamData.id !== container.id) {
+            return this.newStreamData.id;
+        }
 
         return container.id;
     }
@@ -195,54 +222,96 @@ export default class LargeVideoManager {
 
         this.updateInProcess = true;
 
-        // Include hide()/fadeOut only if we're switching between users
-        // eslint-disable-next-line eqeqeq
-        const isUserSwitch = this.newStreamData.id != this.id;
+        // Include hide()/fadeOut if we're switching between users or between different sources of the same user.
         const container = this.getCurrentContainer();
+        const isUserSwitch = container.id !== this.newStreamData.id
+            || container.stream?.getSourceName() !== this.newStreamData.stream?.getSourceName();
         const preUpdate = isUserSwitch ? container.hide() : Promise.resolve();
 
         preUpdate.then(() => {
             const { id, stream, videoType, resolve } = this.newStreamData;
 
+            this.newStreamData = null;
+
+            const state = APP.store.getState();
+            const shouldHideSelfView = getHideSelfView(state);
+            const localId = getLocalParticipant(state)?.id;
+
+
             // FIXME this does not really make sense, because the videoType
             // (camera or desktop) is a completely different thing than
             // the video container type (Etherpad, SharedVideo, VideoContainer).
-            const isVideoContainer
-                = LargeVideoManager.isVideoContainer(videoType);
+            const isVideoContainer = LargeVideoManager.isVideoContainer(videoType);
 
-            this.newStreamData = null;
-
-            logger.info('hover in %s', id);
+            logger.debug(`Scheduled large video update for ${id}`);
             this.state = videoType;
             // eslint-disable-next-line no-shadow
             const container = this.getCurrentContainer();
 
+            if (shouldHideSelfView && localId === id) {
+                return container.hide();
+            }
+
             container.setStream(id, stream, videoType);
 
             // change the avatar url on large
-            this.updateAvatar(
-                getAvatarURLByParticipantId(APP.store.getState(), id));
+            this.updateAvatar();
 
-            // If the user's connection is disrupted then the avatar will be
-            // displayed in case we have no video image cached. That is if
-            // there was a user switch (image is lost on stream detach) or if
-            // the video was not rendered, before the connection has failed.
-            const wasUsersImageCached
-                = !isUserSwitch && container.wasVideoRendered;
             const isVideoMuted = !stream || stream.isMuted();
+            const participant = getParticipantById(state, id);
+            const videoTrack = getVideoTrackByParticipant(state, participant);
 
-            const connectionStatus
-                = APP.conference.getParticipantConnectionStatus(id);
-            const isVideoRenderable
-                = !isVideoMuted
-                    && (APP.conference.isLocalId(id)
-                        || connectionStatus
-                                === JitsiParticipantConnectionStatus.ACTIVE
-                        || wasUsersImageCached);
+            // Remove track streaming status listener from the old track and add it to the new track,
+            // in order to stop updating track streaming status for the old track and start it for the new track.
+            // TODO: when this class is converted to a function react component,
+            // use a custom hook to update a local track streaming status.
+            if (this.videoTrack?.jitsiTrack?.getSourceName() !== videoTrack?.jitsiTrack?.getSourceName()
+                || this.videoTrack?.jitsiTrack?.isP2P !== videoTrack?.jitsiTrack?.isP2P) {
+            // In the case where we switch from jvb to p2p when we need to switch the p2p and jvb track, they will be
+            // with the same source name. In order to add the streaming status listener we need to check if the isP2P
+            // flag is different. Without this check we won't have the correct stream status listener for the track.
+            // Normally the Thumbnail and ConnectionIndicator components will update the streaming status the same way
+            // and this may mask the problem. But if for some reason the update from the Thumbnail and
+            // ConnectionIndicator components don't happen this may lead to showing the avatar instead of
+            // the video because of the old track inactive streaming status.
+                if (this.videoTrack && !this.videoTrack.local) {
+                    this.videoTrack.jitsiTrack.off(JitsiTrackEvents.TRACK_STREAMING_STATUS_CHANGED,
+                        this.handleTrackStreamingStatusChanged);
+                    APP.store.dispatch(trackStreamingStatusChanged(this.videoTrack.jitsiTrack,
+                        this.videoTrack.jitsiTrack.getTrackStreamingStatus()));
+                }
+
+                this.videoTrack = videoTrack;
+
+                if (this.videoTrack && !this.videoTrack.local) {
+                    this.videoTrack.jitsiTrack.on(JitsiTrackEvents.TRACK_STREAMING_STATUS_CHANGED,
+                        this.handleTrackStreamingStatusChanged);
+                    APP.store.dispatch(trackStreamingStatusChanged(this.videoTrack.jitsiTrack,
+                        this.videoTrack.jitsiTrack.getTrackStreamingStatus()));
+                }
+            }
+            const streamingStatusActive = isTrackStreamingStatusActive(videoTrack);
+            const isVideoRenderable = !isVideoMuted
+                && (APP.conference.isLocalId(id)
+                    || isLocalScreenshareParticipant(participant)
+                    || streamingStatusActive
+                );
+
+            const isAudioOnly = APP.conference.isAudioOnly();
+
+            // Multi-stream is not supported on plan-b endpoints even if its is enabled via config.js. A virtual
+            // screenshare tile is still created when a remote endpoint starts screenshare to keep the behavior
+            // consistent and an avatar is displayed on the original participant thumbnail as long as screenshare is in
+            // progress.
+            const legacyScreenshare = videoType === VIDEO_TYPE.DESKTOP && !isScreenShareParticipant(participant);
 
             const showAvatar
                 = isVideoContainer
-                    && (APP.conference.isAudioOnly() || !isVideoRenderable);
+                    && ((isAudioOnly && videoType !== VIDEO_TYPE.DESKTOP) || !isVideoRenderable || legacyScreenshare);
+
+            logger.debug(`scheduleLargeVideoUpdate: Remote track ${videoTrack?.jitsiTrack}, isVideoMuted=${
+                isVideoMuted}, streamingStatusActive=${streamingStatusActive}, isVideoRenderable=${
+                isVideoRenderable}, showAvatar=${showAvatar}`);
 
             let promise;
 
@@ -254,6 +323,29 @@ export default class LargeVideoManager {
                 // If the intention of this switch is to show the avatar
                 // we need to make sure that the video is hidden
                 promise = container.hide();
+
+                if ((!shouldDisplayTileView(state) || participant?.pinned) // In theory the tile view may not be
+                // enabled yet when we auto pin the participant.
+
+                        && participant && !participant.local && !participant.fakeParticipant) {
+                    // remote participant only
+
+                    const track = getVideoTrackByParticipant(state, participant);
+
+                    const isScreenSharing = track?.videoType === 'desktop';
+
+                    if (isScreenSharing) {
+                        // send the event
+                        sendAnalytics(createScreenSharingIssueEvent({
+                            source: 'large-video',
+                            isVideoMuted,
+                            isAudioOnly,
+                            isVideoContainer,
+                            videoType
+                        }));
+                    }
+                }
+
             } else {
                 promise = container.show();
             }
@@ -266,29 +358,14 @@ export default class LargeVideoManager {
                 this.updateLargeVideoAudioLevel(0);
             }
 
-            const isConnectionInterrupted
-                = APP.conference.getParticipantConnectionStatus(id)
-                    === JitsiParticipantConnectionStatus.INTERRUPTED;
-            let messageKey = null;
+            const messageKey = isTrackStreamingStatusInactive(videoTrack) ? 'connection.LOW_BANDWIDTH' : null;
 
-            if (isConnectionInterrupted) {
-                messageKey = 'connection.USER_CONNECTION_INTERRUPTED';
-            } else if (connectionStatus
-                    === JitsiParticipantConnectionStatus.INACTIVE) {
-                messageKey = 'connection.LOW_BANDWIDTH';
-            }
-
-            // Make sure no notification about remote failure is shown as
-            // its UI conflicts with the one for local connection interrupted.
-            // For the purposes of UI indicators, audio only is considered as
-            // an "active" connection.
-            const overrideAndHide
-                = APP.conference.isAudioOnly()
-                    || APP.conference.isConnectionInterrupted();
+            // Do not show connection status message in the audio only mode,
+            // because it's based on the video playback status.
+            const overrideAndHide = APP.conference.isAudioOnly();
 
             this.updateParticipantConnStatusIndication(
                     id,
-                    !overrideAndHide && isConnectionInterrupted,
                     !overrideAndHide && messageKey);
 
             // Change the participant id the presence label is listening to.
@@ -304,9 +381,21 @@ export default class LargeVideoManager {
             // after everything is done check again if there are any pending
             // new streams.
             this.updateInProcess = false;
-            this.eventEmitter.emit(UIEvents.LARGE_VIDEO_ID_CHANGED, this.id);
             this.scheduleLargeVideoUpdate();
         });
+    }
+
+    /**
+     * Handle track streaming status change event by
+     * by dispatching an action to update track streaming status for the given track in app state.
+     *
+     * @param {JitsiTrack} jitsiTrack the track with streaming status updated
+     * @param {JitsiTrackStreamingStatus} streamingStatus the updated track streaming status
+     *
+     * @private
+     */
+    handleTrackStreamingStatusChanged(jitsiTrack, streamingStatus) {
+        APP.store.dispatch(trackStreamingStatusChanged(jitsiTrack, streamingStatus));
     }
 
     /**
@@ -314,24 +403,18 @@ export default class LargeVideoManager {
      * shown on the large video area.
      *
      * @param {string} id the id of remote participant(MUC nickname)
-     * @param {boolean} showProblemsIndication
      * @param {string|null} messageKey the i18n key of the message which will be
      * displayed on the large video or <tt>null</tt> to hide it.
      *
      * @private
      */
-    updateParticipantConnStatusIndication(
-            id,
-            showProblemsIndication,
-            messageKey) {
-        // Apply grey filter on the large video
-        this.videoContainer.showRemoteConnectionProblemIndicator(
-            showProblemsIndication);
+    updateParticipantConnStatusIndication(id, messageKey) {
+        const state = APP.store.getState();
 
         if (messageKey) {
             // Get user's display name
             const displayName
-                = APP.conference.getParticipantDisplayName(id);
+                = getParticipantDisplayName(state, id);
 
             this._setRemoteConnectionMessage(
                 messageKey,
@@ -373,9 +456,39 @@ export default class LargeVideoManager {
     /**
      * Update container size.
      */
-    updateContainerSize() {
-        this.width = UIUtil.getAvailableVideoWidth();
-        this.height = window.innerHeight;
+    updateContainerSize(width, height) {
+        if (typeof width === 'number') {
+            this.preferredWidth = width;
+        }
+        if (typeof height === 'number') {
+            this.preferredHeight = height;
+        }
+
+        let widthToUse = this.preferredWidth || window.innerWidth;
+        const state = APP.store.getState();
+        const { isOpen } = state['features/chat'];
+        const { width: filmstripWidth, visible } = state['features/filmstrip'];
+        const isParticipantsPaneOpen = getParticipantsPaneOpen(state);
+        const resizableFilmstrip = isFilmstripResizable(state);
+
+        if (isParticipantsPaneOpen) {
+            widthToUse -= theme.participantsPaneWidth;
+        }
+
+        if (isOpen && window.innerWidth > 580) {
+            /**
+             * If chat state is open, we re-compute the container width
+             * by subtracting the default width of the chat.
+             */
+            widthToUse -= CHAT_SIZE;
+        }
+
+        if (resizableFilmstrip && visible && filmstripWidth.current >= FILMSTRIP_BREAKPOINT) {
+            widthToUse -= getVerticalViewMaxWidth(state);
+        }
+
+        this.width = widthToUse;
+        this.height = this.preferredHeight || window.innerHeight;
     }
 
     /**
@@ -397,31 +510,21 @@ export default class LargeVideoManager {
         // resize all containers
         Object.keys(this.containers)
             .forEach(type => this.resizeContainer(type, animate));
-
-        this.$container.animate({
-            width: this.width,
-            height: this.height
-        }, {
-            queue: false,
-            duration: animate ? 500 : 0
-        });
-    }
-
-    /**
-     * Enables/disables the filter indicating a video problem to the user caused
-     * by the problems with local media connection.
-     *
-     * @param enable <tt>true</tt> to enable, <tt>false</tt> to disable
-     */
-    enableLocalConnectionProblemFilter(enable) {
-        this.videoContainer.enableLocalConnectionProblemFilter(enable);
     }
 
     /**
      * Updates the src of the dominant speaker avatar
      */
-    updateAvatar(avatarUrl) {
-        $('#dominantSpeakerAvatar').attr('src', avatarUrl);
+    updateAvatar() {
+        ReactDOM.render(
+            <Provider store = { APP.store }>
+                <Avatar
+                    id = "dominantSpeakerAvatar"
+                    participantId = { this.id }
+                    size = { 200 } />
+            </Provider>,
+            this._dominantSpeakerAvatarContainer
+        );
     }
 
     /**
@@ -442,8 +545,8 @@ export default class LargeVideoManager {
      * @returns {void}
      */
     updatePresenceLabel(id) {
-        const isConnectionMessageVisible
-            = $('#remoteConnectionMessage').is(':visible');
+        const isConnectionMessageVisible = getComputedStyle(
+            document.getElementById('remoteConnectionMessage')).display !== 'none';
 
         if (isConnectionMessageVisible) {
             this.removePresenceLabel();
@@ -451,14 +554,18 @@ export default class LargeVideoManager {
             return;
         }
 
-        const presenceLabelContainer = $('#remotePresenceMessage');
+        const presenceLabelContainer = document.getElementById('remotePresenceMessage');
 
-        if (presenceLabelContainer.length) {
+        if (presenceLabelContainer) {
             ReactDOM.render(
                 <Provider store = { APP.store }>
-                    <PresenceLabel participantID = { id } />
+                    <I18nextProvider i18n = { i18next }>
+                        <PresenceLabel
+                            participantID = { id }
+                            className = 'presence-label' />
+                    </I18nextProvider>
                 </Provider>,
-                presenceLabelContainer.get(0));
+                presenceLabelContainer);
         }
     }
 
@@ -468,10 +575,10 @@ export default class LargeVideoManager {
      * @returns {void}
      */
     removePresenceLabel() {
-        const presenceLabelContainer = $('#remotePresenceMessage');
+        const presenceLabelContainer = document.getElementById('remotePresenceMessage');
 
-        if (presenceLabelContainer.length) {
-            ReactDOM.unmountComponentAtNode(presenceLabelContainer.get(0));
+        if (presenceLabelContainer) {
+            ReactDOM.unmountComponentAtNode(presenceLabelContainer);
         }
     }
 
@@ -480,30 +587,11 @@ export default class LargeVideoManager {
      * @param {boolean} show
      */
     showWatermark(show) {
-        $('.watermark').css('visibility', show ? 'visible' : 'hidden');
-    }
+        const watermark = document.querySelectorAll('.watermark');
 
-    /**
-     * Shows/hides the message indicating problems with local media connection.
-     * @param {boolean|null} show(optional) tells whether the message is to be
-     * displayed or not. If missing the condition will be based on the value
-     * obtained from {@link APP.conference.isConnectionInterrupted}.
-     */
-    showLocalConnectionMessage(show) {
-        if (typeof show !== 'boolean') {
-            // eslint-disable-next-line no-param-reassign
-            show = APP.conference.isConnectionInterrupted();
-        }
-
-        const id = 'localConnectionMessage';
-
-        UIUtil.setVisible(id, show);
-
-        if (show) {
-            // Avatar message conflicts with 'videoConnectionMessage',
-            // so it must be hidden
-            this.showRemoteConnectionMessage(false);
-        }
+        watermark.forEach(el => {
+            el.style.visibility = show ? 'visible' : 'hidden';
+        });
     }
 
     /**
@@ -518,24 +606,19 @@ export default class LargeVideoManager {
      */
     showRemoteConnectionMessage(show) {
         if (typeof show !== 'boolean') {
-            const connStatus
-                = APP.conference.getParticipantConnectionStatus(this.id);
+            const participant = getParticipantById(APP.store.getState(), this.id);
+            const state = APP.store.getState();
+            const videoTrack = getVideoTrackByParticipant(state, participant);
 
             // eslint-disable-next-line no-param-reassign
             show = !APP.conference.isLocalId(this.id)
-                && (connStatus === JitsiParticipantConnectionStatus.INTERRUPTED
-                    || connStatus
-                        === JitsiParticipantConnectionStatus.INACTIVE);
+                && (isTrackStreamingStatusInterrupted(videoTrack) || isTrackStreamingStatusInactive(videoTrack));
         }
 
         if (show) {
-            $('#remoteConnectionMessage').css({ display: 'block' });
-
-            // 'videoConnectionMessage' message conflicts with 'avatarMessage',
-            // so it must be hidden
-            this.showLocalConnectionMessage(false);
+            document.getElementById('remoteConnectionMessage').style.display = 'block';
         } else {
-            $('#remoteConnectionMessage').hide();
+            document.getElementById('remoteConnectionMessage').style.display = 'none';
         }
     }
 
@@ -557,21 +640,6 @@ export default class LargeVideoManager {
             APP.translation.translateElement(
                 $('#remoteConnectionMessage'), msgOptions);
         }
-    }
-
-    /**
-     * Updated the text which is to be shown on the top of large video, when
-     * local media connection is interrupted.
-     *
-     * @param {string} msgKey the translation key which will be used to get
-     * the message text to be displayed on the large video.
-     *
-     * @private
-     */
-    _setLocalConnectionMessage(msgKey) {
-        $('#localConnectionMessage')
-            .attr('data-i18n', msgKey);
-        APP.translation.translateElement($('#localConnectionMessage'));
     }
 
     /**
@@ -654,7 +722,6 @@ export default class LargeVideoManager {
 
         if (LargeVideoManager.isVideoContainer(this.state)) {
             this.showWatermark(false);
-            this.showLocalConnectionMessage(false);
             this.showRemoteConnectionMessage(false);
         }
         oldContainer.hide();
@@ -674,7 +741,6 @@ export default class LargeVideoManager {
                 // at the same time, but the latter is of higher priority and it
                 // will hide the avatar one if will be displayed.
                 this.showRemoteConnectionMessage(/* fetch the current state */);
-                this.showLocalConnectionMessage(/* fetch the current state */);
             }
         });
     }
@@ -688,8 +754,8 @@ export default class LargeVideoManager {
     }
 
     /**
-     * Dispatches an action to update the known resolution state of the
-     * large video and adjusts container sizes when the resolution changes.
+     * Dispatches an action to update the known resolution state of the large video and adjusts container sizes when the
+     * resolution changes.
      *
      * @private
      * @returns {void}
@@ -702,7 +768,7 @@ export default class LargeVideoManager {
             APP.store.dispatch(updateKnownLargeVideoResolution(height));
         }
 
-        const currentAspectRatio = width / height;
+        const currentAspectRatio = height === 0 ? 0 : width / height;
 
         if (this._videoAspectRatio !== currentAspectRatio) {
             this._videoAspectRatio = currentAspectRatio;

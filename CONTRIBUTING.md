@@ -1,29 +1,14 @@
-# How to contribute
-We would love to have your help. Before you start working however, please read
-and follow this short guide.
+# Follow Our Updated Guide to See How You Can Contribute
 
-# Reporting Issues
-Provide as much information as possible. Mention the version of Jitsi Meet, 
-Jicofo and JVB you are using, and explain (as detailed as you can) how the 
-problem can be reproduced.
+Hello there! 👋
 
-# Code contributions
-Found a bug and know how to fix it? Great! Please read on.
+We're thrilled that you're eager to contribute to Jitsi Meet! ❤️ 
 
-## Contributor License Agreement
-While the Jitsi projects are released under the
-[Apache License 2.0](https://github.com/jitsi/jitsi-meet/blob/master/LICENSE), the copyright
-holder and principal creator is [Atlassian](https://www.atlassian.com/). To
-ensure that we can continue making these projects available under an Open Source license,
-we need you to sign our Apache-based contributor
-license agreement as either a [corporation](https://jitsi.org/ccla) or an
-[individual](https://jitsi.org/icla). If you cannot accept the terms laid out
-in the agreement, unfortunately, we cannot accept your contribution.
+Your interest in improving our platform means a lot to us. To ensure your contributions align seamlessly with our goals and processes, we've recently updated our guide. This guide will provide you with clear instructions on how to get involved effectively.
 
-## Creating Pull Requests
-- Make sure your code passes the linter rules beforehand. The linter is exeuted
-  automatically when committing code.
-- Perform **one** logical change per pull request.
-- Maintain a clean list of commits, squash them if necessary.
-- Rebase your topic branch on top of the master branch before creating the pull
- request.
+Ready to get started? Head over to our [Jitsi Meet Handbook](https://jitsi.github.io/handbook/docs/dev-guide/dev-guide-contributing/) and let's make Jitsi Meet even better together!
+
+### ❗️Additional Note
+Before sending us your code, double-check that it meets our coding standards. You can do this by running a command: `npm run lint`. If there are any issues, don't worry! You can fix them by running: `npm run lint-fix`. Once your code passes these checks, feel free to submit your pull request.
+
+Happy coding!

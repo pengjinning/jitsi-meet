@@ -1,5 +1,5 @@
 /*
- * Copyright @ 2017-present Atlassian Pty Ltd
+ * Copyright @ 2022-present 8x8, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 
-#import "JitsiMeetView.h"
+#import <JitsiMeetSDK/JitsiMeetSDK.h>
 
-@interface JitsiMeetView ()
+NS_ASSUME_NONNULL_BEGIN
 
-+ (instancetype)viewForExternalAPIScope:(NSString *)externalAPIScope;
+static NSString * const updateViewPropsNotificationName = @"org.jitsi.meet.UpdateViewProps";
+
+@interface JitsiMeetView (Private)
+
++ (void)updateProps:(NSDictionary *_Nonnull)newProps;
 
 @end
+
+NS_ASSUME_NONNULL_END

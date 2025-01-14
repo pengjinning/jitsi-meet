@@ -1,5 +1,5 @@
 /*
- * Copyright @ 2017-present Atlassian Pty Ltd
+ * Copyright @ 2017-present 8x8, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTLog.h>
 
+#import "InfoPlistUtil.h"
+
 @interface AppInfo : NSObject<RCTBridgeModule>
 @end
 
@@ -26,11 +28,22 @@
 
 RCT_EXPORT_MODULE();
 
++ (BOOL)requiresMainQueueSetup {
+    return NO;
+}
+
 - (NSDictionary *)constantsToExport {
     NSDictionary<NSString *, id> *infoDictionary
         = [[NSBundle mainBundle] infoDictionary];
+
+    // calendarEnabled
+    BOOL calendarEnabled = NO;
+#if !defined(JITSI_MEET_SDK_LITE)
+    calendarEnabled = infoDictionary[@"NSCalendarsUsageDescription"] != nil;
+#endif
+
+    // name
     NSString *name = infoDictionary[@"CFBundleDisplayName"];
-    NSString *version = infoDictionary[@"CFBundleShortVersionString"];
 
     if (name == nil) {
         name = infoDictionary[@"CFBundleName"];
@@ -38,6 +51,13 @@ RCT_EXPORT_MODULE();
             name = @"";
         }
     }
+
+    // sdkBundlePath
+    NSString *sdkBundlePath = [[NSBundle bundleForClass:self.class] bundlePath];
+
+    // version
+    NSString *version = infoDictionary[@"CFBundleShortVersionString"];
+
     if (version == nil) {
         version = infoDictionary[@"CFBundleVersion"];
         if (version == nil) {
@@ -45,10 +65,38 @@ RCT_EXPORT_MODULE();
         }
     }
 
+    // SDK version
+    NSDictionary<NSString *, id> *sdkInfoDictionary
+        = [[NSBundle bundleForClass:self.class] infoDictionary];
+    NSString *sdkVersion = sdkInfoDictionary[@"CFBundleShortVersionString"];
+    if (sdkVersion == nil) {
+        sdkVersion = @"";
+    }
+
+    // build number
+    NSString *buildNumber = infoDictionary[@"CFBundleVersion"];
+    if (buildNumber == nil) {
+        buildNumber = @"";
+    }
+
+    // google services (sign in)
+    BOOL isGoogleServiceEnabled = [InfoPlistUtil containsRealServiceInfoPlistInBundle:[NSBundle mainBundle]];
+    
+    // lite SDK
+    BOOL isLiteSDK = NO;
+#if defined(JITSI_MEET_SDK_LITE)
+    isLiteSDK = YES;
+#endif
+
     return @{
+        @"calendarEnabled": [NSNumber numberWithBool:calendarEnabled],
+        @"buildNumber": buildNumber,
+        @"isLiteSDK": [NSNumber numberWithBool:isLiteSDK],
         @"name": name,
-        @"version": version
+        @"sdkBundlePath": sdkBundlePath,
+        @"sdkVersion": sdkVersion,
+        @"version": version,
+        @"GOOGLE_SERVICES_ENABLED": [NSNumber numberWithBool:isGoogleServiceEnabled]
     };
 };
-
 @end

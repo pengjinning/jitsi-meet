@@ -1,5 +1,5 @@
 /*
- * Copyright @ 2017-present Atlassian Pty Ltd
+ * Copyright @ 2017-present 8x8, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.UiThreadUtil;
+import com.facebook.react.module.annotations.ReactModule;
 
 /**
  * Module implementing a simple API to enable a proximity sensor-controlled
@@ -31,22 +32,10 @@ import com.facebook.react.bridge.UiThreadUtil;
  * object it will dim the screen and disable touch controls. The functionality
  * is used with the conference audio-only mode.
  */
+@ReactModule(name = ProximityModule.NAME)
 class ProximityModule extends ReactContextBaseJavaModule {
-    /**
-     * The name of {@code ProximityModule} to be used in the React Native
-     * bridge.
-     */
-    private static final String MODULE_NAME = "Proximity";
 
-    /**
-     * This type of wake lock (the one activated by the proximity sensor) has
-     * been available for a while, but the constant was only exported in API
-     * level 21 (Android Marshmallow) so make no assumptions and use its value
-     * directly.
-     *
-     * TODO: Remove when we bump the API level to 21.
-     */
-    private static final int PROXIMITY_SCREEN_OFF_WAKE_LOCK = 32;
+    public static final String NAME = "Proximity";
 
     /**
      * {@link WakeLock} instance.
@@ -71,8 +60,8 @@ class ProximityModule extends ReactContextBaseJavaModule {
         try {
             wakeLock
                 = powerManager.newWakeLock(
-                        PROXIMITY_SCREEN_OFF_WAKE_LOCK,
-                        MODULE_NAME);
+                        PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK,
+                        "jitsi:"+NAME);
         } catch (Throwable ignored) {
             wakeLock = null;
         }
@@ -87,7 +76,7 @@ class ProximityModule extends ReactContextBaseJavaModule {
      */
     @Override
     public String getName() {
-        return MODULE_NAME;
+        return NAME;
     }
 
     /**

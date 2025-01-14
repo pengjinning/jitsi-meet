@@ -1,124 +1,87 @@
-# Jitsi Meet - Secure, Simple and Scalable Video Conferences
+# <p align="center">Jitsi Meet</p>
 
-Jitsi Meet is an open-source (Apache) WebRTC JavaScript application that uses [Jitsi Videobridge](https://jitsi.org/videobridge) to provide high quality, [secure](#security) and scalable video conferences. You can see Jitsi Meet in action [here at the session #482 of the VoIP Users Conference](http://youtu.be/7vFUVClsNh0).
+Jitsi Meet is a set of Open Source projects which empower users to use and deploy
+video conferencing platforms with state-of-the-art video quality and features.
 
-The Jitsi Meet client runs in your browser, without the need for installing anything on your computer. You can also try it out yourself at https://meet.jit.si .
+<hr />
 
-Jitsi Meet allows for very efficient collaboration. It allows users to stream their desktop or only some windows. It also supports shared document editing with Etherpad.
+<p align="center">
+<img src="https://raw.githubusercontent.com/jitsi/jitsi-meet/master/readme-img1.png" width="900" />
+</p>
 
-## Installation
+<hr />
 
-On the client side, no installation is necessary. You just point your browser to the URL of your deployment. This section is about installing the Jitsi Meet suite on your server and hosting your own conferencing service.
+Amongst others here are the main features Jitsi Meet offers:
 
-Installing Jitsi Meet is quite a simple experience. For Debian-based systems, we recommend following the [quick-install](https://github.com/jitsi/jitsi-meet/blob/master/doc/quick-install.md) document, which uses the package system.
+* Support for all current browsers
+* Mobile applications
+* Web and native SDKs for integration
+* HD audio and video
+* Content sharing
+* Raise hand and reactions
+* Chat with private conversations
+* Polls
+* Virtual backgrounds
 
-For other systems, or if you wish to install all components manually, see the [detailed manual installation instructions](https://github.com/jitsi/jitsi-meet/blob/master/doc/manual-install.md).
+And many more!
 
-## Download
+## Using Jitsi Meet
 
-You can download Debian/Ubuntu binaries:
-* [stable](https://download.jitsi.org/stable/) ([instructions](https://jitsi.org/downloads/ubuntu-debian-installations-instructions/))
-* [testing](https://download.jitsi.org/testing/) ([instructions](https://jitsi.org/downloads/ubuntu-debian-installations-instructions-for-testing/))
-* [nightly](https://download.jitsi.org/unstable/) ([instructions](https://jitsi.org/downloads/ubuntu-debian-installations-instructions-nightly/))
+Using Jitsi Meet is straightforward, as it's browser based. Head over to [meet.jit.si](https://meet.jit.si) and give it a try. It's scalable and free to use. All you need is a Google, Facebook or GitHub account in order to start a meeting. All browsers are supported!
 
-You can download source archives (produced by ```make source-package```):
-* [source builds](https://download.jitsi.org/jitsi-meet/src/)
+Using mobile? No problem, you can either use your mobile web browser or our fully-featured
+mobile apps:
 
-You can get our mobile versions from here:
-* [Android](https://play.google.com/store/apps/details?id=org.jitsi.meet)
-* [iOS](https://itunes.apple.com/us/app/jitsi-meet/id1165103905)
+| Android | Android (F-Droid) | iOS |
+|:-:|:-:|:-:|
+| [<img src="resources/img/google-play-badge.png" height="50">](https://play.google.com/store/apps/details?id=org.jitsi.meet) | [<img src="resources/img/f-droid-badge.png" height="50">](https://f-droid.org/packages/org.jitsi.meet/) | [<img src="resources/img/appstore-badge.png" height="50">](https://itunes.apple.com/us/app/jitsi-meet/id1165103905) |
 
-## Building the sources
+If you are feeling adventurous and want to get an early scoop of the features as they are being
+developed you can also sign up for our open beta testing here:
 
-Node.js >= 6 is required.
+* [Android](https://play.google.com/apps/testing/org.jitsi.meet)
+* [iOS](https://testflight.apple.com/join/isy6ja7S)
 
-On Debian/Ubuntu systems, the required packages can be installed with:
-```
-sudo apt-get install npm nodejs-legacy
-cd jitsi-meet
-npm install
-```
+## Running your own instance
 
-To build the Jitsi Meet application, just type
-```
-make
-```
+If you'd like to run your own Jitsi Meet installation head over to the [handbook](https://jitsi.github.io/handbook/docs/devops-guide/) to get started.
 
-## Working with the library sources (lib-jitsi-meet)
+We provide Debian packages and a comprehensive Docker setup to make deployments as simple as possible.
+Advanced users also have the possibility of building all the components from source.
 
-By default the library is build from its git repository sources. The default dependency path in package.json is :
-```json
-"lib-jitsi-meet": "jitsi/lib-jitsi-meet",
-```
+You can check the latest releases [here](https://jitsi.github.io/handbook/docs/releases).
 
-To work with local copy you must change the path to:
-```json
-"lib-jitsi-meet": "file:///Users/name/local-lib-jitsi-meet-copy",
-```
+## Jitsi as a Service
 
-To make the project you must force it to take the sources as 'npm update' will not do it.
-```
-npm install lib-jitsi-meet --force && make
-```
+If you like the branding capabilities of running your own instance but you'd like
+to avoid dealing with the complexity of monitoring, scaling and updates, JaaS might be
+for you.
 
-Or if you are making only changes to the library:
-```
-npm install lib-jitsi-meet --force && make deploy-lib-jitsi-meet
-```
+[8x8 Jitsi as a Service (JaaS)](https://jaas.8x8.vc) is an enterprise-ready video meeting platform that allows developers, organizations and businesses to easily build and deploy video solutions. With Jitsi as a Service we now give you all the power of Jitsi running on our global platform so you can focus on building secure and branded video experiences.
 
-Alternative way is to use [npm link](https://docs.npmjs.com/cli/link).
-It allows to link `lib-jitsi-meet` dependency to local source in few steps:
+## Documentation
 
-```bash
-cd lib-jitsi-meet
+All the Jitsi Meet documentation is available in [the handbook](https://jitsi.github.io/handbook/).
 
-# create global symlink for lib-jitsi-meet package
-npm link
+## Security
 
-cd ../jitsi-meet
+For a comprehensive description of all Jitsi Meet's security aspects, please check [this link](https://jitsi.org/security).
 
-# create symlink from the local node_modules folder to the global lib-jitsi-meet symlink
-npm link lib-jitsi-meet
-```
+For a detailed description of Jitsi Meet's End-to-End Encryption (E2EE) implementation,
+please check [this link](https://jitsi.org/e2ee-whitepaper/).
 
-So now after changes in local `lib-jitsi-meet` repository you can rebuild it with `npm run install` and your `jitsi-meet` repository will use that modified library.
-Note: when using node version 4.x, the make file of jitsi-meet do npm update which will delete the link, no longer the case with version 6.x.
-
-If you do not want to use local repository anymore you should run
-```bash
-cd jitsi-meet
-npm unlink lib-jitsi-meet
-npm install
-```
+For information on reporting security vulnerabilities in Jitsi Meet, see [SECURITY.md](./SECURITY.md).
 
 ## Contributing
 
 If you are looking to contribute to Jitsi Meet, first of all, thank you! Please
 see our [guidelines for contributing](CONTRIBUTING.md).
 
-## Embedding in external applications
+<br />
+<br />
 
-Jitsi Meet provides a very flexible way of embedding it in external applications by using the [Jitsi Meet API](doc/api.md).
-
-## Security
-WebRTC today does not provide a way of conducting multiparty conversations with
-end-to-end encryption. As a matter of fact, unless you consistently vocally
-compare DTLS fingerprints with your peers, the same goes for one-to-one calls.
-As a result when using a Jitsi Meet instance, your stream is encrypted on the
-network but decrypted on the machine that hosts the bridge.
-
-The Jitsi Meet architecture allows you to deploy your own version, including
-all server components, and in that case your security guarantees will be roughly
-equivalent to these of a direct one-to-one WebRTC call. This is what's unique to 
-Jitsi Meet in terms of security.
-
-The [meet.jit.si](https://meet.jit.si) service is maintained by the Jitsi team
-at [Atlassian](https://atlassian.com).
-
-## Mobile app
-Jitsi Meet is also available as a React Native app for Android and iOS.
-Instructions on how to build it can be found [here](doc/mobile.md).
-
-## Acknowledgements
-
-Jitsi Meet started out as a sample conferencing application using Jitsi Videobridge. It was originally developed by then ESTOS' developer Philipp Hancke who then contributed it to the community where development continues with joint forces!
+<footer>
+<p align="center" style="font-size: smaller;">
+Built with ❤️ by the Jitsi team at <a href="https://8x8.com" target="_blank">8x8</a> and our community.
+</p>
+</footer>

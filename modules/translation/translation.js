@@ -1,10 +1,7 @@
-/* @flow */
-
+import $ from 'jquery';
 import jqueryI18next from 'jquery-i18next';
 
-import { i18next } from '../../react/features/base/i18n';
-
-declare var $: Function;
+import i18next from '../../react/features/base/i18n/i18next';
 
 /**
  * Notifies that the {@link i18next} instance has finished its initialization.
@@ -13,7 +10,12 @@ declare var $: Function;
  * @private
  */
 function _onI18nInitialized() {
+
+    const documentElement
+        = document.documentElement || {};
+
     $('[data-i18n]').localize();
+    documentElement.lang = i18next.language;
 }
 
 /**
@@ -23,20 +25,7 @@ class Translation {
     /**
      *
      */
-    generateTranslationHTML(key: string, options: Object) {
-        const optAttr
-            = options ? ` data-i18n-options='${JSON.stringify(options)}'` : '';
-
-        // XXX i18next expects undefined if options are missing.
-        const text = i18next.t(key, options ? options : undefined);
-
-        return `<span data-i18n="${key}"${optAttr}>${text}</span>`;
-    }
-
-    /**
-     *
-     */
-    init() {
+    constructor() {
         jqueryI18next.init(i18next, $, { useOptionsAttr: true });
 
         if (i18next.isInitialized) {
@@ -51,7 +40,20 @@ class Translation {
     /**
      *
      */
-    translateElement(selector: Object, options: Object) {
+    generateTranslationHTML(key, options) {
+        const optAttr
+            = options ? ` data-i18n-options='${JSON.stringify(options)}'` : '';
+
+        // XXX i18next expects undefined if options are missing.
+        const text = i18next.t(key, options ? options : undefined);
+
+        return `<span data-i18n="${key}"${optAttr}>${text}</span>`;
+    }
+
+    /**
+     *
+     */
+    translateElement(selector, options) {
         // XXX i18next expects undefined if options are missing.
         selector.localize(options ? options : undefined);
     }
