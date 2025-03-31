@@ -1,6 +1,6 @@
 import { isEqual } from 'lodash-es';
 
-import type { Participant } from '../../helpers/Participant';
+import { P1_DISPLAY_NAME, P2_DISPLAY_NAME, Participant } from '../../helpers/Participant';
 import { ensureTwoParticipants, parseJid } from '../../helpers/participants';
 
 /**
@@ -17,6 +17,7 @@ async function checkParticipantLeftHook(p: Participant, reason: string) {
                 conference: string;
                 disconnectReason: string;
                 isBreakout: boolean;
+                name: string;
                 participantId: string;
             };
             eventType: string;
@@ -27,15 +28,23 @@ async function checkParticipantLeftHook(p: Participant, reason: string) {
         expect(event.data.disconnectReason).toBe(reason);
         expect(event.data.isBreakout).toBe(false);
         expect(event.data.participantId).toBe(await p.getEndpointId());
+        expect(event.data.name).toBe(p.displayName);
     }
 }
 
-describe('Participants presence - ', () => {
+describe('Participants presence', () => {
     it('joining the meeting', async () => {
         // ensure 2 participants one moderator and one guest, we will load both with iframeAPI
         await ensureTwoParticipants(ctx);
 
         const { p1, p2, webhooksProxy } = ctx;
+
+        if (await p1.execute(() => config.disableIframeAPI)) {
+            // skip the test if iframeAPI is disabled
+            ctx.skipSuiteTests = true;
+
+            return;
+        }
 
         // let's populate endpoint ids
         await Promise.all([
@@ -144,7 +153,7 @@ describe('Participants presence - ', () => {
 
         await p1.getIframeAPI().executeCommand('grantModerator', p2EpId);
 
-        await p2.driver.waitUntil(async () => await p2.getIframeAPI().getEventResult('isModerator'), {
+        await p2.driver.waitUntil(() => p2.getIframeAPI().getEventResult('isModerator'), {
             timeout: 3000,
             timeoutMsg: 'Moderator role not granted'
         });
@@ -202,13 +211,11 @@ describe('Participants presence - ', () => {
 
         await p1.getIframeAPI().executeCommand('kickParticipant', p2EpId);
 
-        const eventP1 = await p1.driver.waitUntil(async () =>
-            await p1.getIframeAPI().getEventResult('participantKickedOut'), {
+        const eventP1 = await p1.driver.waitUntil(() => p1.getIframeAPI().getEventResult('participantKickedOut'), {
             timeout: 2000,
             timeoutMsg: 'participantKickedOut event not received on participant1 side'
         });
-        const eventP2 = await p2.driver.waitUntil(async () =>
-            await p2.getIframeAPI().getEventResult('participantKickedOut'), {
+        const eventP2 = await p2.driver.waitUntil(() => p2.getIframeAPI().getEventResult('participantKickedOut'), {
             timeout: 2000,
             timeoutMsg: 'participantKickedOut event not received on participant2 side'
         });
@@ -243,8 +250,8 @@ describe('Participants presence - ', () => {
             }
         })).toBe(true);
 
-        const eventConferenceLeftP2 = await p2.driver.waitUntil(async () =>
-            await p2.getIframeAPI().getEventResult('videoConferenceLeft'), {
+        const eventConferenceLeftP2 = await p2.driver.waitUntil(() =>
+            p2.getIframeAPI().getEventResult('videoConferenceLeft'), {
             timeout: 2000,
             timeoutMsg: 'videoConferenceLeft not received'
         });
@@ -285,12 +292,12 @@ describe('Participants presence - ', () => {
             expect(event.data.moderator).toBe(false);
             expect(event.data.name).toBe(await p2.getLocalDisplayName());
             expect(event.data.participantId).toBe(await p2.getEndpointId());
+            expect(event.data.name).toBe(p2.displayName);
         }
 
         await p1.switchToAPI();
 
-        const event = await p1.driver.waitUntil(async () =>
-            await p1.getIframeAPI().getEventResult('participantJoined'), {
+        const event = await p1.driver.waitUntil(() => p1.getIframeAPI().getEventResult('participantJoined'), {
             timeout: 2000,
             timeoutMsg: 'participantJoined not received'
         });
@@ -310,8 +317,8 @@ describe('Participants presence - ', () => {
         const p1EpId = await p1.getEndpointId();
         const p2EpId = await p2.getEndpointId();
 
-        const newP1Name = 'p1';
-        const newP2Name = 'p2';
+        const newP1Name = P1_DISPLAY_NAME;
+        const newP2Name = P2_DISPLAY_NAME;
         const newNames: ({ id: string; name: string; })[] = [ {
             id: p2EpId,
             name: newP2Name
@@ -341,8 +348,8 @@ describe('Participants presence - ', () => {
 
         await p2.getIframeAPI().executeCommand('hangup');
 
-        const eventConferenceLeftP2 = await p2.driver.waitUntil(async () =>
-            await p2.getIframeAPI().getEventResult('videoConferenceLeft'), {
+        const eventConferenceLeftP2 = await p2.driver.waitUntil(() =>
+            p2.getIframeAPI().getEventResult('videoConferenceLeft'), {
             timeout: 2000,
             timeoutMsg: 'videoConferenceLeft not received'
         });
@@ -352,8 +359,7 @@ describe('Participants presence - ', () => {
 
         await checkParticipantLeftHook(p2, 'left');
 
-        const eventReadyToCloseP2 = await p2.driver.waitUntil(async () =>
-            await p2.getIframeAPI().getEventResult('readyToClose'), {
+        const eventReadyToCloseP2 = await p2.driver.waitUntil(() => p2.getIframeAPI().getEventResult('readyToClose'), {
             timeout: 2000,
             timeoutMsg: 'readyToClose not received'
         });
@@ -371,8 +377,8 @@ describe('Participants presence - ', () => {
 
         await p1.getIframeAPI().executeCommand('hangup');
 
-        const eventConferenceLeft = await p1.driver.waitUntil(async () =>
-            await p1.getIframeAPI().getEventResult('videoConferenceLeft'), {
+        const eventConferenceLeft = await p1.driver.waitUntil(() =>
+            p1.getIframeAPI().getEventResult('videoConferenceLeft'), {
             timeout: 2000,
             timeoutMsg: 'videoConferenceLeft not received'
         });
@@ -397,8 +403,7 @@ describe('Participants presence - ', () => {
             expect(event.data.isBreakout).toBe(false);
         }
 
-        const eventReadyToClose = await p1.driver.waitUntil(async () =>
-            await p1.getIframeAPI().getEventResult('readyToClose'), {
+        const eventReadyToClose = await p1.driver.waitUntil(() => p1.getIframeAPI().getEventResult('readyToClose'), {
             timeout: 2000,
             timeoutMsg: 'readyToClose not received'
         });

@@ -114,6 +114,7 @@ const events = {
     'compute-pressure-changed': 'computePressureChanged',
     'conference-created-timestamp': 'conferenceCreatedTimestamp',
     'content-sharing-participants-changed': 'contentSharingParticipantsChanged',
+    'custom-notification-action-triggered': 'customNotificationActionTriggered',
     'data-channel-closed': 'dataChannelClosed',
     'data-channel-opened': 'dataChannelOpened',
     'device-list-changed': 'deviceListChanged',
@@ -195,80 +196,6 @@ function changeParticipantNumber(APIInstance, number) {
 }
 
 /**
- * Generates the URL for the iframe.
- *
- * @param {string} domain - The domain name of the server that hosts the
- * conference.
- * @param {string} [options] - Another optional parameters.
- * @param {Object} [options.configOverwrite] - Object containing configuration
- * options defined in config.js to be overridden.
- * @param {Object} [options.interfaceConfigOverwrite] - Object containing
- * configuration options defined in interface_config.js to be overridden.
- * @param {string} [options.jwt] - The JWT token if needed by jitsi-meet for
- * authentication.
- * @param {string} [options.lang] - The meeting's default language.
- * @param {string} [options.roomName] - The name of the room to join.
- * @returns {string} The URL.
- */
-function generateURL(domain, options = {}) {
-    return urlObjectToString({
-        ...options,
-        url: `https://${domain}/#jitsi_meet_external_api_id=${id}`
-    });
-}
-
-/**
- * Parses the arguments passed to the constructor. If the old format is used
- * the function translates the arguments to the new format.
- *
- * @param {Array} args - The arguments to be parsed.
- * @returns {Object} JS object with properties.
- */
-function parseArguments(args) {
-    if (!args.length) {
-        return {};
-    }
-
-    const firstArg = args[0];
-
-    switch (typeof firstArg) {
-    case 'string': // old arguments format
-    case 'undefined': {
-        // Not sure which format but we are trying to parse the old
-        // format because if the new format is used everything will be undefined
-        // anyway.
-        const [
-            roomName,
-            width,
-            height,
-            parentNode,
-            configOverwrite,
-            interfaceConfigOverwrite,
-            jwt,
-            onload,
-            lang
-        ] = args;
-
-        return {
-            roomName,
-            width,
-            height,
-            parentNode,
-            configOverwrite,
-            interfaceConfigOverwrite,
-            jwt,
-            onload,
-            lang
-        };
-    }
-    case 'object': // new arguments format
-        return args[0];
-    default:
-        throw new Error('Can\'t parse the arguments!');
-    }
-}
-
-/**
  * Compute valid values for height and width. If a number is specified it's
  * treated as pixel units. If the value is expressed in px, em, pt or
  * percentage, it's used as is.
@@ -336,7 +263,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * @param {string}  [options.release] - The key used for specifying release if enabled on the backend.
      * @param {string} [options.sandbox] - Sandbox directive for the created iframe, if desired.
      */
-    constructor(domain, ...args) {
+    constructor(domain, options = {}) {
         super();
         const {
             roomName = '',
@@ -345,21 +272,22 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             parentNode = document.body,
             configOverwrite = {},
             interfaceConfigOverwrite = {},
-            jwt = undefined,
-            lang = undefined,
-            onload = undefined,
+            jwt,
+            lang,
+            onload,
             invitees,
             iceServers,
             devices,
             userInfo,
             e2eeKey,
             release,
-            sandbox = ''
-        } = parseArguments(args);
+            sandbox
+        } = options;
         const localStorageContent = jitsiLocalStorage.getItem('jitsiLocalStorage');
 
         this._parentNode = parentNode;
-        this._url = generateURL(domain, {
+
+        this._url = urlObjectToString({
             configOverwrite,
             iceServers,
             interfaceConfigOverwrite,
@@ -371,7 +299,8 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             appData: {
                 localStorageContent
             },
-            release
+            release,
+            url: `https://${domain}/#jitsi_meet_external_api_id=${id}`
         });
 
         this._createIFrame(height, width, sandbox);
@@ -747,9 +676,20 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      *
      * @returns {Object} Rooms info.
      */
-    async getRoomsInfo() {
+    getRoomsInfo() {
         return this._transport.sendRequest({
             name: 'rooms-info'
+        });
+    }
+
+    /**
+     * Returns the Shared Document Url of the conference.
+     *
+     * @returns {Object} Rooms info.
+     */
+    getSharedDocumentUrl() {
+        return this._transport.sendRequest({
+            name: 'get-shared-document-url'
         });
     }
 
@@ -1313,6 +1253,10 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * Returns the state of availability electron share screen via external api.
      *
      * @returns {Promise}
+     *
+     * TODO: should be removed after we make sure that all Electron clients use only versions
+     * after with the legacy SS support was removed from the electron SDK. If we remove it now the SS for Electron
+     * clients with older versions wont work.
      */
     _isNewElectronScreensharingSupported() {
         return this._transport.sendRequest({
@@ -1522,5 +1466,16 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
     */
     setVirtualBackground(enabled, backgroundImage) {
         this.executeCommand('setVirtualBackground', enabled, backgroundImage);
+    }
+
+    /**
+     * Opens the desktop picker. This is invoked by the Electron SDK when gDM is used.
+     *
+     * @returns {Promise}
+     */
+    _openDesktopPicker() {
+        return this._transport.sendRequest({
+            name: 'open-desktop-picker'
+        });
     }
 }

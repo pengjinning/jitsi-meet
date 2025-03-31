@@ -172,7 +172,9 @@ let room;
 
 /*
  * Logic to open a desktop picker put on the window global for
- * lib-jitsi-meet to detect and invoke
+ * lib-jitsi-meet to detect and invoke.
+ *
+ * TODO: remove once the Electron SDK supporting gDM has been out for a while.
  */
 window.JitsiMeetScreenObtainer = {
     openDesktopPicker(options, onSourceChoose) {
@@ -287,7 +289,7 @@ class ConferenceConnector {
                 },
                 descriptionKey: 'dialog.reservationErrorMsg',
                 titleKey: 'dialog.reservationError'
-            }, NOTIFICATION_TIMEOUT_TYPE.LONG));
+            }));
             break;
         }
 
@@ -295,7 +297,7 @@ class ConferenceConnector {
             APP.store.dispatch(showErrorNotification({
                 descriptionKey: 'dialog.gracefulShutdown',
                 titleKey: 'dialog.serviceUnavailable'
-            }, NOTIFICATION_TIMEOUT_TYPE.LONG));
+            }));
             break;
 
         // FIXME FOCUS_DISCONNECTED is a confusing event name.
@@ -599,7 +601,7 @@ export default {
 
         const { tryCreateLocalTracks, errors } = this.createInitialLocalTracks(initialOptions, true);
 
-        tryCreateLocalTracks.then(async tr => {
+        tryCreateLocalTracks.then(tr => {
             const createLocalTracksEnd = window.performance.now();
 
             connectionTimes['conference.init.createLocalTracks.end'] = createLocalTracksEnd;
@@ -1012,7 +1014,7 @@ export default {
     },
 
     /**
-     * Will be filled with values only when config.debug is enabled.
+     * Will be filled with values only when config.testing.testMode is true.
      * Its used by torture to check audio levels.
      */
     audioLevelsMap: {},
@@ -1399,28 +1401,19 @@ export default {
     /**
      * Creates desktop (screensharing) {@link JitsiLocalTrack}
      *
-     * @param {Object} [options] - Screen sharing options that will be passed to
-     * createLocalTracks.
-     * @param {Object} [options.desktopSharing]
-     * @param {Object} [options.desktopStream] - An existing desktop stream to
-     * use instead of creating a new desktop stream.
      * @return {Promise.<JitsiLocalTrack>} - A Promise resolved with
      * {@link JitsiLocalTrack} for the screensharing or rejected with
      * {@link JitsiTrackError}.
      *
      * @private
      */
-    _createDesktopTrack(options = {}) {
+    _createDesktopTrack() {
         const didHaveVideo = !this.isLocalVideoMuted();
 
-        const getDesktopStreamPromise = options.desktopStream
-            ? Promise.resolve([ options.desktopStream ])
-            : createLocalTracksF({
-                desktopSharingSourceDevice: options.desktopSharingSources
-                    ? null : config._desktopSharingSourceDevice,
-                desktopSharingSources: options.desktopSharingSources,
-                devices: [ 'desktop' ]
-            });
+        const getDesktopStreamPromise = createLocalTracksF({
+            desktopSharingSourceDevice: config._desktopSharingSourceDevice,
+            devices: [ 'desktop' ]
+        });
 
         return getDesktopStreamPromise.then(desktopStreams => {
             // Stores the "untoggle" handler which remembers whether was
@@ -1597,9 +1590,9 @@ export default {
                 newLvl = 0;
             }
 
-            if (config.debug) {
+            if (config.testing?.testMode) {
                 this.audioLevelsMap[id] = newLvl;
-                if (config.debugAudioLevels) {
+                if (config.testing?.debugAudioLevels) {
                     logger.log(`AudioLevel:${id}/${newLvl}`);
                 }
             }
@@ -2285,8 +2278,10 @@ export default {
      * @param {boolean} [requestFeedback=false] if user feedback should be
      * @param {string} [hangupReason] the reason for leaving the meeting
      * requested
+     * @param {boolean} [notifyOnConferenceTermination] whether to notify
+     * the user on conference termination
      */
-    hangup(requestFeedback = false, hangupReason) {
+    hangup(requestFeedback = false, hangupReason, notifyOnConferenceTermination) {
         APP.store.dispatch(disableReceiver());
 
         this._stopProxyConnection();
@@ -2305,7 +2300,7 @@ export default {
 
         if (requestFeedback) {
             const feedbackDialogClosed = (feedbackResult = {}) => {
-                if (!feedbackResult.wasDialogShown && hangupReason) {
+                if (!feedbackResult.wasDialogShown && hangupReason && notifyOnConferenceTermination) {
                     return APP.store.dispatch(
                         openLeaveReasonDialog(hangupReason)).then(() => feedbackResult);
                 }

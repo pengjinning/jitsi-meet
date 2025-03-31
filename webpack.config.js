@@ -109,12 +109,6 @@ function getConfig(options = {}) {
                     // Avoid loading babel.config.js, since we only use it for React Native.
                     configFile: false,
 
-                    // XXX The require.resolve below solves failures to locate the
-                    // presets when lib-jitsi-meet, for example, is npm linked in
-                    // jitsi-meet.
-                    plugins: [
-                        require.resolve('@babel/plugin-proposal-export-default-from')
-                    ],
                     presets: [
                         [
                             require.resolve('@babel/preset-env'),
@@ -132,14 +126,24 @@ function getConfig(options = {}) {
                                     electron: 10,
                                     firefox: 68,
                                     safari: 14
-                                }
+                                },
 
+                                // Consider stage 3 proposals which are implemented by some browsers already.
+                                shippedProposals: true,
+
+                                // Detect usage of modern JavaScript features and automatically polyfill them
+                                // with core-js.
+                                useBuiltIns: 'usage',
+
+                                // core-js version to use, must be in sync with the version in package.json.
+                                corejs: '3.40'
                             }
                         ],
                         require.resolve('@babel/preset-react')
                     ]
                 },
-                test: /\.jsx?$/
+                test: /\.(j|t)sx?$/,
+                exclude: /node_modules/
             }, {
                 // Allow CSS to be imported into JavaScript.
 
@@ -238,7 +242,7 @@ function getDevServerConfig() {
                 warnings: false
             }
         },
-        host: '127.0.0.1',
+        host: '::',
         hot: true,
         proxy: [
             {
@@ -276,7 +280,7 @@ module.exports = (_env, argv) => {
     };
 
     return [
-        Object.assign({}, config, {
+        { ...config,
             entry: {
                 'app.bundle': './app.js'
             },
@@ -297,10 +301,8 @@ module.exports = (_env, argv) => {
                 })
             ],
 
-            performance: getPerformanceHints(perfHintOptions, 5 * 1024 * 1024)
-
-        }),
-        Object.assign({}, config, {
+            performance: getPerformanceHints(perfHintOptions, 5 * 1024 * 1024) },
+        { ...config,
             entry: {
                 'alwaysontop': './react/features/always-on-top/index.tsx'
             },
@@ -308,19 +310,8 @@ module.exports = (_env, argv) => {
                 ...config.plugins,
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'alwaysontop')
             ],
-            performance: getPerformanceHints(perfHintOptions, 800 * 1024)
-        }),
-        Object.assign({}, config, {
-            entry: {
-                'analytics-ga': './react/features/analytics/handlers/GoogleAnalyticsHandler.ts'
-            },
-            plugins: [
-                ...config.plugins,
-                ...getBundleAnalyzerPlugin(analyzeBundle, 'analytics-ga')
-            ],
-            performance: getPerformanceHints(perfHintOptions, 5 * 1024)
-        }),
-        Object.assign({}, config, {
+            performance: getPerformanceHints(perfHintOptions, 800 * 1024) },
+        { ...config,
             entry: {
                 'close3': './static/close3.js'
             },
@@ -328,24 +319,21 @@ module.exports = (_env, argv) => {
                 ...config.plugins,
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'close3')
             ],
-            performance: getPerformanceHints(perfHintOptions, 128 * 1024)
-        }),
+            performance: getPerformanceHints(perfHintOptions, 128 * 1024) },
 
-        Object.assign({}, config, {
+        { ...config,
             entry: {
                 'external_api': './modules/API/external/index.js'
             },
-            output: Object.assign({}, config.output, {
+            output: { ...config.output,
                 library: 'JitsiMeetExternalAPI',
-                libraryTarget: 'umd'
-            }),
+                libraryTarget: 'umd' },
             plugins: [
                 ...config.plugins,
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'external_api')
             ],
-            performance: getPerformanceHints(perfHintOptions, 40 * 1024)
-        }),
-        Object.assign({}, config, {
+            performance: getPerformanceHints(perfHintOptions, 95 * 1024) },
+        { ...config,
             entry: {
                 'face-landmarks-worker': './react/features/face-landmarks/faceLandmarksWorker.ts'
             },
@@ -353,10 +341,8 @@ module.exports = (_env, argv) => {
                 ...config.plugins,
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'face-landmarks-worker')
             ],
-            performance: getPerformanceHints(perfHintOptions, 1024 * 1024 * 2)
-        }),
-        Object.assign({}, config, {
-            /**
+            performance: getPerformanceHints(perfHintOptions, 1024 * 1024 * 2) },
+        { ...config, /**
              * The NoiseSuppressorWorklet is loaded in an audio worklet which doesn't have the same
              * context as a normal window, (e.g. self/window is not defined).
              * While running a production build webpack's boilerplate code doesn't introduce any
@@ -386,10 +372,9 @@ module.exports = (_env, argv) => {
                 ...config.output,
 
                 globalObject: 'AudioWorkletGlobalScope'
-            }
-        }),
+            } },
 
-        Object.assign({}, config, {
+        { ...config,
             entry: {
                 'screenshot-capture-worker': './react/features/screenshot-capture/worker.ts'
             },
@@ -397,7 +382,6 @@ module.exports = (_env, argv) => {
                 ...config.plugins,
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'screenshot-capture-worker')
             ],
-            performance: getPerformanceHints(perfHintOptions, 4 * 1024)
-        })
+            performance: getPerformanceHints(perfHintOptions, 30 * 1024) }
     ];
 };

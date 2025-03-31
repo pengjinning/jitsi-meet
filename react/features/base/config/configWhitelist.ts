@@ -1,4 +1,7 @@
+import { isEmbedded } from '../util/embedUtils';
+
 import extraConfigWhitelist from './extraConfigWhitelist';
+import isEmbeddedConfigWhitelist from './isEmbeddedConfigWhitelist';
 
 /**
  * The config keys to whitelist, the keys that can be overridden.
@@ -22,6 +25,7 @@ export default [
     'apiLogLevels',
     'avgRtpStatsN',
     'backgroundAlpha',
+    'brandingRoomAlias',
     'breakoutRooms',
     'bridgeChannel',
     'buttonsWithNotifyClick',
@@ -76,9 +80,6 @@ export default [
     'channelLastN',
     'connectionIndicators',
     'constraints',
-    'brandingRoomAlias',
-    'debug',
-    'debugAudioLevels',
     'deeplinking.disabled',
     'deeplinking.desktop.enabled',
     'defaultLocalDisplayName',
@@ -92,13 +93,13 @@ export default [
     'disableAddingBackgroundImages',
     'disableAudioLevels',
     'disableBeforeUnloadHandlers',
+    'disableCameraTintForeground',
     'disableChatSmileys',
     'disableDeepLinking',
     'disabledNotifications',
     'disabledSounds',
     'disableFilmstripAutohiding',
     'disableInitialGUM',
-    'disableHPF',
     'disableInviteFunctions',
     'disableIncomingMessageSound',
     'disableJoinLeaveSounds',
@@ -147,13 +148,9 @@ export default [
     'enableNoAudioDetection',
     'enableNoisyMicDetection',
     'enableTcc',
-    'enableAutomaticUrlCopy',
     'faceLandmarks',
-    'failICE',
     'feedbackPercentage',
-    'fileRecordingsEnabled',
     'filmstrip',
-    'firefox_fake_device',
     'flags',
     'forceTurnRelay',
     'gatherStats',
@@ -185,6 +182,7 @@ export default [
     'mouseMoveCallbackInterval',
     'notifications',
     'notificationTimeouts',
+    'notifyOnConferenceDestruction',
     'openSharedDocumentOnJoin',
     'opusMaxAverageBitrate',
     'p2p.backToP2PDelay',
@@ -208,7 +206,10 @@ export default [
     'remoteVideoMenu',
     'roomPasswordNumberOfDigits',
     'readOnlyName',
-    'recordings',
+    'recordings.recordAudioAndVideo',
+    'recordings.showPrejoinWarning',
+    'recordings.showRecordingLink',
+    'recordings.suggestRecording',
     'replaceParticipant',
     'resolution',
     'screenshotCapture',
@@ -233,10 +234,10 @@ export default [
     'useHostPageLocalStorage',
     'useTurnUdp',
     'videoQuality',
-    'visitors',
-    'watchRTCConfigParams.console',
+    'visitors.enableMediaOnPromote',
     'watchRTCConfigParams.allowBrowserLogCollection',
     'watchRTCConfigParams.collectionInterval',
+    'watchRTCConfigParams.console',
     'watchRTCConfigParams.debug',
     'watchRTCConfigParams.keys',
     'watchRTCConfigParams.logGetStats',
@@ -248,4 +249,4 @@ export default [
     'webrtcIceTcpDisable',
     'webrtcIceUdpDisable',
     'whiteboard.enabled'
-].concat(extraConfigWhitelist);
+].concat(extraConfigWhitelist).concat(isEmbedded() ? isEmbeddedConfigWhitelist : []);

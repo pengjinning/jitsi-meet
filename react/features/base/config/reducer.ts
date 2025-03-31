@@ -63,7 +63,6 @@ export interface IConfigState extends IConfig {
     analysis?: {
         obfuscateRoomName?: boolean;
     };
-    disableRemoteControl?: boolean;
     error?: Error;
     oldConfig?: {
         bosh?: string;
@@ -74,13 +73,6 @@ export interface IConfigState extends IConfig {
         };
         p2p?: object;
         websocket?: string;
-    };
-    visitors?: {
-        enableMediaOnPromote?: {
-            audio?: boolean;
-            video?: boolean;
-        };
-        queueService: string;
     };
 }
 
@@ -580,9 +572,12 @@ function _translateLegacyConfig(oldValue: IConfig) {
         };
     }
 
-    if (oldValue.disableProfile) {
-        newValue.toolbarButtons = (newValue.toolbarButtons || TOOLBAR_BUTTONS)
-            .filter((button: ToolbarButton) => button !== 'profile');
+    // Profile button is not available on mobile
+    if (navigator.product !== 'ReactNative') {
+        if (oldValue.disableProfile) {
+            newValue.toolbarButtons = (newValue.toolbarButtons || TOOLBAR_BUTTONS)
+                .filter((button: ToolbarButton) => button !== 'profile');
+        }
     }
 
     _setDeeplinkingDefaults(newValue.deeplinking as IDeeplinkingConfig);

@@ -1,4 +1,7 @@
+import { isEmbedded } from '../util/embedUtils';
+
 import extraInterfaceConfigWhitelistCopy from './extraInterfaceConfigWhitelist';
+import isEmbeddedInterfaceConfigWhitelist from './isEmbeddedInterfaceConfigWhitelist';
 
 /**
  * The interface config keys to whitelist, the keys that can be overridden.
@@ -22,15 +25,12 @@ export default [
     'DISABLE_DOMINANT_SPEAKER_INDICATOR',
     'DISABLE_FOCUS_INDICATOR',
     'DISABLE_PRIVATE_MESSAGES',
-    'DISABLE_RINGING',
     'DISABLE_TRANSCRIPTION_SUBTITLES',
     'DISABLE_VIDEO_BACKGROUND',
     'DISPLAY_WELCOME_PAGE_CONTENT',
     'ENABLE_DIAL_OUT',
-    'ENABLE_FEEDBACK_ANIMATION',
     'FILM_STRIP_MAX_HEIGHT',
     'GENERATE_ROOMNAMES_ON_WELCOME_PAGE',
-    'HIDE_INVITE_MORE_HEADER',
     'INDICATOR_FONT_SIZES',
     'INITIAL_TOOLBAR_TIMEOUT',
     'LANG_DETECTION',
@@ -54,4 +54,4 @@ export default [
     'VERTICAL_FILMSTRIP',
     'VIDEO_LAYOUT_FIT',
     'VIDEO_QUALITY_LABEL_DISABLED'
-].concat(extraInterfaceConfigWhitelistCopy);
+].concat(extraInterfaceConfigWhitelistCopy).concat(isEmbedded() ? isEmbeddedInterfaceConfigWhitelist : []);

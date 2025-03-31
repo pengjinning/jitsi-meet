@@ -27,16 +27,11 @@ export interface IProps {
  */
 export class AbstractApp<P extends IProps = IProps> extends BaseApp<P> {
     /**
-     * The deferred for the initialization {{promise, resolve, reject}}.
-     */
-    _init: PromiseWithResolvers<any>;
-
-    /**
      * Initializes the app.
      *
      * @inheritdoc
      */
-    async componentDidMount() {
+    override async componentDidMount() {
         await super.componentDidMount();
 
         // If a URL was explicitly specified to this React Component, then
@@ -49,7 +44,7 @@ export class AbstractApp<P extends IProps = IProps> extends BaseApp<P> {
      *
      * @inheritdoc
      */
-    async componentDidUpdate(prevProps: IProps) {
+    override async componentDidUpdate(prevProps: IProps) {
         const previousUrl = toURLString(prevProps.url);
         const currentUrl = toURLString(this.props.url);
         const previousTimestamp = prevProps.timestamp;
