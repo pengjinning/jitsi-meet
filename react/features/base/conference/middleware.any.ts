@@ -13,21 +13,24 @@ import {
 import { sendAnalytics } from '../../analytics/functions';
 import { reloadNow } from '../../app/actions';
 import { IStore } from '../../app/types';
+import { login } from '../../authentication/actions.any';
 import { removeLobbyChatParticipant } from '../../chat/actions.any';
 import { openDisplayNamePrompt } from '../../display-name/actions';
 import { isVpaasMeeting } from '../../jaas/functions';
-import { showErrorNotification, showNotification } from '../../notifications/actions';
+import { clearNotifications, showErrorNotification, showNotification } from '../../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../../notifications/constants';
 import { INotificationProps } from '../../notifications/types';
 import { hasDisplayName } from '../../prejoin/utils';
 import { stopLocalVideoRecording } from '../../recording/actions.any';
 import LocalRecordingManager from '../../recording/components/Recording/LocalRecordingManager';
+import { AudioMixerEffect } from '../../stream-effects/audio-mixer/AudioMixerEffect';
 import { iAmVisitor } from '../../visitors/functions';
 import { overwriteConfig } from '../config/actions';
-import { CONNECTION_ESTABLISHED, CONNECTION_FAILED } from '../connection/actionTypes';
-import { connectionDisconnected, disconnect } from '../connection/actions';
+import { CONNECTION_ESTABLISHED, CONNECTION_FAILED, CONNECTION_WILL_CONNECT } from '../connection/actionTypes';
+import { connect, connectionDisconnected, disconnect, setPreferVisitor } from '../connection/actions';
 import { validateJwt } from '../jwt/functions';
 import { JitsiConferenceErrors, JitsiConferenceEvents, JitsiConnectionErrors } from '../lib-jitsi-meet';
+import { MEDIA_TYPE } from '../media/constants';
 import { PARTICIPANT_UPDATED, PIN_PARTICIPANT } from '../participants/actionTypes';
 import { PARTICIPANT_ROLE } from '../participants/constants';
 import {
@@ -77,6 +80,11 @@ import { IConferenceMetadata } from './reducer';
 let beforeUnloadHandler: ((e?: any) => void) | undefined;
 
 /**
+ * A simple flag to avoid retrying more than once to join as a visitor when hitting max occupants reached.
+ */
+let retryAsVisitorOnMaxError = true;
+
+/**
  * Implements the middleware of the feature base/conference.
  *
  * @param {Store} store - The redux store.
@@ -95,6 +103,11 @@ MiddlewareRegistry.register(store => next => action => {
 
     case CONNECTION_FAILED:
         return _connectionFailed(store, next, action);
+
+    case CONNECTION_WILL_CONNECT:
+        // we are starting a new join process, let's clear the error notifications if any from any previous attempt
+        store.dispatch(clearNotifications());
+        break;
 
     case CONFERENCE_SUBJECT_CHANGED:
         return _conferenceSubjectChanged(store, next, action);
@@ -195,11 +208,20 @@ function _conferenceFailed({ dispatch, getState }: IStore, next: Function, actio
         break;
     }
     case JitsiConferenceErrors.CONFERENCE_MAX_USERS: {
-        dispatch(showErrorNotification({
-            hideErrorSupportLink: true,
-            descriptionKey: 'dialog.maxUsersLimitReached',
-            titleKey: 'dialog.maxUsersLimitReachedTitle'
-        }));
+        let retryAsVisitor = false;
+
+        if (error.params?.length && error.params[0]?.visitorsSupported === 'true') {
+            // visitors are supported, so let's try joining that way
+            retryAsVisitor = true;
+        }
+
+        if (!retryAsVisitor) {
+            dispatch(showErrorNotification({
+                hideErrorSupportLink: true,
+                descriptionKey: 'dialog.maxUsersLimitReached',
+                titleKey: 'dialog.maxUsersLimitReachedTitle'
+            }));
+        }
 
         // In case of max users(it can be from a visitor node), let's restore
         // oldConfig if any as we will be back to the main prosody.
@@ -213,12 +235,24 @@ function _conferenceFailed({ dispatch, getState }: IStore, next: Function, actio
                 .then(() => dispatch(disconnect()));
         }
 
+        if (retryAsVisitor && !newConfig && retryAsVisitorOnMaxError) {
+            retryAsVisitorOnMaxError = false;
+
+            logger.info('On max user reached will retry joining as a visitor');
+
+            dispatch(disconnect(true)).then(() => {
+                dispatch(setPreferVisitor(true));
+
+                return dispatch(connect());
+            });
+        }
+
         break;
     }
     case JitsiConferenceErrors.NOT_ALLOWED_ERROR: {
         const [ type, msg ] = error.params;
 
-        let descriptionKey;
+        let descriptionKey, customActionNameKey, customActionHandler;
         let titleKey = 'dialog.tokenAuthFailed';
 
         if (type === JitsiConferenceErrors.AUTH_ERROR_TYPES.NO_MAIN_PARTICIPANTS) {
@@ -230,9 +264,15 @@ function _conferenceFailed({ dispatch, getState }: IStore, next: Function, actio
             descriptionKey = 'visitors.notification.notAllowedPromotion';
         } else if (type === JitsiConferenceErrors.AUTH_ERROR_TYPES.ROOM_CREATION_RESTRICTION) {
             descriptionKey = 'dialog.errorRoomCreationRestriction';
+        } else if (type === JitsiConferenceErrors.AUTH_ERROR_TYPES.ROOM_UNAUTHENTICATED_ACCESS_DISABLED) {
+            titleKey = 'dialog.unauthenticatedAccessDisabled';
+            customActionNameKey = [ 'toolbar.login' ];
+            customActionHandler = [ () => dispatch(login()) ];
         }
 
         dispatch(showErrorNotification({
+            customActionNameKey,
+            customActionHandler,
             descriptionKey,
             hideErrorSupportLink: true,
             titleKey
@@ -261,7 +301,9 @@ function _conferenceFailed({ dispatch, getState }: IStore, next: Function, actio
         _removeUnloadHandler(getState);
     }
 
-    if (enableForcedReload && error?.name === JitsiConferenceErrors.CONFERENCE_RESTARTED) {
+    if (enableForcedReload
+        && (error?.name === JitsiConferenceErrors.CONFERENCE_RESTARTED
+            || error?.name === JitsiConnectionErrors.SHARD_CHANGED_ERROR)) {
         dispatch(conferenceWillLeave(conference));
         dispatch(reloadNow());
     }
@@ -290,6 +332,8 @@ function _conferenceJoined({ dispatch, getState }: IStore, next: Function, actio
         disableBeforeUnloadHandlers = false,
         requireDisplayName
     } = getState()['features/base/config'];
+
+    retryAsVisitorOnMaxError = true;
 
     dispatch(removeLobbyChatParticipant(true));
 
@@ -653,7 +697,7 @@ function _setRoom({ dispatch, getState }: IStore, next: Function, action: AnyAct
  * @private
  * @returns {Object} The value returned by {@code next(action)}.
  */
-function _trackAddedOrRemoved(store: IStore, next: Function, action: AnyAction) {
+async function _trackAddedOrRemoved(store: IStore, next: Function, action: AnyAction) {
     const track = action.track;
 
     // TODO All track swapping should happen here instead of conference.js.
@@ -661,7 +705,6 @@ function _trackAddedOrRemoved(store: IStore, next: Function, action: AnyAction) 
         const { getState } = store;
         const state = getState();
         const conference = getCurrentConference(state);
-        let promise;
 
         if (conference) {
             const jitsiTrack = action.track.jitsiTrack;
@@ -670,14 +713,22 @@ function _trackAddedOrRemoved(store: IStore, next: Function, action: AnyAction) 
                 // If gUM is slow and tracks are created after the user has already joined the conference, avoid
                 // adding the tracks to the conference if the user is a visitor.
                 if (!iAmVisitor(state)) {
-                    promise = _addLocalTracksToConference(conference, [ jitsiTrack ]);
+                    const { desktopAudioTrack } = state['features/screen-share'];
+
+                    // If the user is sharing their screen and has a desktop audio track, we need to replace that with
+                    // the audio mixer effect so that the desktop audio is mixed in with the microphone audio.
+                    if (typeof APP !== 'undefined' && desktopAudioTrack && track.mediaType === MEDIA_TYPE.AUDIO) {
+                        await conference.replaceTrack(desktopAudioTrack, null);
+                        const audioMixerEffect = new AudioMixerEffect(desktopAudioTrack);
+
+                        await jitsiTrack.setEffect(audioMixerEffect);
+                        await conference.replaceTrack(null, jitsiTrack);
+                    } else {
+                        await _addLocalTracksToConference(conference, [ jitsiTrack ]);
+                    }
                 }
             } else {
-                promise = _removeLocalTracksFromConference(conference, [ jitsiTrack ]);
-            }
-
-            if (promise) {
-                return promise.then(() => next(action));
+                await _removeLocalTracksFromConference(conference, [ jitsiTrack ]);
             }
         }
     }

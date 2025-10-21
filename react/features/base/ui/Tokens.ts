@@ -1,4 +1,3 @@
-
 // Mapping between the token used and the color
 export const colorMap = {
     // ----- Surfaces -----
@@ -119,8 +118,8 @@ export const colorMap = {
 
 
 export const font = {
-    weightRegular: '400',
-    weightSemiBold: '600'
+    weightRegular: 400,
+    weightSemiBold: 600
 };
 
 export const shape = {
@@ -129,8 +128,7 @@ export const shape = {
     boxShadow: 'inset 0px -1px 0px rgba(255, 255, 255, 0.15)'
 };
 
-export const spacing
-    = [ 0, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128 ];
+export const spacing = [ 0, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128 ];
 
 export const typography = {
     labelRegular: 'label01',
@@ -138,64 +136,64 @@ export const typography = {
     labelBold: 'labelBold01',
 
     bodyShortRegularSmall: {
-        fontSize: 10,
-        lineHeight: 16,
+        fontSize: '0.625rem',
+        lineHeight: '1rem',
         fontWeight: font.weightRegular,
         letterSpacing: 0
     },
 
     bodyShortRegular: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: '0.875rem',
+        lineHeight: '1.25rem',
         fontWeight: font.weightRegular,
         letterSpacing: 0
     },
 
     bodyShortBold: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: '0.875rem',
+        lineHeight: '1.25rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     bodyShortRegularLarge: {
-        fontSize: 16,
-        lineHeight: 22,
+        fontSize: '1rem',
+        lineHeight: '1.375rem',
         fontWeight: font.weightRegular,
         letterSpacing: 0
     },
 
     bodyShortBoldLarge: {
-        fontSize: 16,
-        lineHeight: 22,
+        fontSize: '1rem',
+        lineHeight: '1.375rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     bodyLongRegular: {
-        fontSize: 14,
-        lineHeight: 24,
+        fontSize: '0.875rem',
+        lineHeight: '1.5rem',
         fontWeight: font.weightRegular,
         letterSpacing: 0
     },
 
     bodyLongRegularLarge: {
-        fontSize: 16,
-        lineHeight: 26,
+        fontSize: '1rem',
+        lineHeight: '1.625rem',
         fontWeight: font.weightRegular,
         letterSpacing: 0
     },
 
     bodyLongBold: {
-        fontSize: 14,
-        lineHeight: 24,
+        fontSize: '0.875rem',
+        lineHeight: '1.5rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     bodyLongBoldLarge: {
-        fontSize: 16,
-        lineHeight: 26,
+        fontSize: '1rem',
+        lineHeight: '1.625rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
@@ -205,29 +203,29 @@ export const typography = {
     heading2: 'heading02',
 
     heading3: {
-        fontSize: 32,
-        lineHeight: 40,
+        fontSize: '2rem',
+        lineHeight: '2.5rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     heading4: {
-        fontSize: 28,
-        lineHeight: 36,
+        fontSize: '1.75rem',
+        lineHeight: '2.25rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     heading5: {
-        fontSize: 20,
-        lineHeight: 28,
+        fontSize: '1.25rem',
+        lineHeight: '1.75rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     },
 
     heading6: {
-        fontSize: 16,
-        lineHeight: 26,
+        fontSize: '1rem',
+        lineHeight: '1.625rem',
         fontWeight: font.weightSemiBold,
         letterSpacing: 0
     }

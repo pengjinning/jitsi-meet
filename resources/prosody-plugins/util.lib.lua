@@ -132,11 +132,7 @@ function get_room_from_jid(room_jid)
     local component = hosts[host];
     if component then
         local muc = component.modules.muc
-        if muc and rawget(muc,"rooms") then
-            -- We're running 0.9.x or 0.10 (old MUC API)
-            return muc.rooms[room_jid];
-        elseif muc and rawget(muc,"get_room_from_jid") then
-            -- We're running >0.10 (new MUC API)
+        if muc then
             return muc.get_room_from_jid(room_jid);
         else
             return
@@ -263,13 +259,10 @@ end
 -- Utility function to check whether feature is present and enabled. Allow
 -- a feature if there are features present in the session(coming from
 -- the token) and the value of the feature is true.
--- If features are missing but we have granted_features check that
 -- if features are missing from the token we check whether it is moderator
-function is_feature_allowed(ft, features, granted_features, is_moderator)
+function is_feature_allowed(ft, features, is_moderator)
     if features then
         return features[ft] == "true" or features[ft] == true;
-    elseif granted_features then
-        return granted_features[ft] == "true" or granted_features[ft] == true;
     else
         return is_moderator;
     end
@@ -284,6 +277,11 @@ function extract_subdomain(room_node)
     end
 
     local subdomain, room_name = room_node:match("^%[([^%]]+)%](.+)$");
+
+    if not subdomain then
+        room_name = room_node;
+    end
+
     local _, customer_id = subdomain and subdomain:match("^(vpaas%-magic%-cookie%-)(.*)$") or nil, nil;
     local cache_value = { subdomain=subdomain, room=room_name, customer_id=customer_id };
     extract_subdomain_cache:set(room_node, cache_value);
@@ -320,8 +318,11 @@ function starts_with_one_of(str, prefixes)
     return false
 end
 
-
 function ends_with(str, ending)
+    if not str then
+        return false;
+    end
+
     return ending == "" or str:sub(-#ending) == ending
 end
 
@@ -581,7 +582,7 @@ function process_host_module(name, callback)
         module:log('info', 'No host/component found, will wait for it: %s', name)
 
         -- when a host or component is added
-        prosody.events.add_handler('host-activated', process_host);
+        prosody.events.add_handler('host-activated', process_host, -100); -- make sure everything is loaded
     else
         process_host(name);
     end
@@ -593,6 +594,64 @@ function table_shallow_copy(t)
         t2[k] = v
     end
     return t2
+end
+
+local function table_find(tab, val)
+    if not tab or val == nil then
+        return nil
+    end
+
+    for i, v in ipairs(tab) do
+        if v == val then
+            return i
+        end
+    end
+    return nil
+end
+
+-- Adds second table values to the first table
+local function table_add(t1, t2)
+    for _,v in ipairs(t2) do
+       table.insert(t1, v);
+    end
+end
+
+-- Returns as a first result the removed items and as a second the added items
+local function table_compare(old_table, new_table)
+    local removed = {}
+    local added = {}
+    local modified = {}
+
+    -- Find removed items (in old but not in new)
+    for id, value in pairs(old_table) do
+        if new_table[id] == nil then
+            table.insert(removed, id)
+        elseif new_table[id] ~= value then
+            table.insert(modified, id)
+        end
+    end
+
+    -- Find added items (in new but not in old)
+    for id, _ in pairs(new_table) do
+        if old_table[id] == nil then
+            table.insert(added, id)
+        end
+    end
+
+    return removed, added, modified
+end
+
+local function table_equals(t1, t2)
+    if t1 == nil then
+        return t2 == nil;
+    end
+    if t2 == nil then
+        return t1 == nil;
+    end
+
+    local removed, added, modified = table_compare(t1, t2);
+
+    return next(removed) == nil and next(added) == nil and next(modified) == nil
 end
 
 -- Splits a string using delimiter
@@ -642,11 +701,35 @@ local function is_admin(_jid)
     return false;
 end
 
+-- Filter out identity information (nick name, email, etc) from a presence stanza.
+local function filter_identity_from_presence(orig_stanza)
+    local stanza = st.clone(orig_stanza);
+
+    stanza:remove_children('nick', 'http://jabber.org/protocol/nick');
+    stanza:remove_children('email');
+    stanza:remove_children('stats-id');
+    local identity = stanza:get_child('identity');
+    if identity then
+        local user = identity:get_child('user');
+        local name = identity:get_child('name');
+        if user then
+            user:remove_children('email');
+            user:remove_children('name');
+        end
+        if name then
+            name:remove_children('name');  -- Remove name with no namespace
+        end
+    end
+
+    return stanza;
+end
+
 return {
     OUTBOUND_SIP_JIBRI_PREFIXES = OUTBOUND_SIP_JIBRI_PREFIXES;
     INBOUND_SIP_JIBRI_PREFIXES = INBOUND_SIP_JIBRI_PREFIXES;
     RECORDER_PREFIXES = RECORDER_PREFIXES;
     extract_subdomain = extract_subdomain;
+    filter_identity_from_presence = filter_identity_from_presence;
     is_admin = is_admin;
     is_feature_allowed = is_feature_allowed;
     is_jibri = is_jibri;
@@ -675,5 +758,9 @@ return {
     split_string = split_string;
     starts_with = starts_with;
     starts_with_one_of = starts_with_one_of;
+    table_add = table_add;
+    table_compare = table_compare;
     table_shallow_copy = table_shallow_copy;
+    table_find = table_find;
+    table_equals = table_equals;
 };

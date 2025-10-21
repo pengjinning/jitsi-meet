@@ -34,7 +34,7 @@ const chat = {
 };
 
 const screensharing = {
-    key: 'screensharing',
+    key: 'desktop',
     Content: ScreenSharingButton,
     group: 1
 };
@@ -95,11 +95,7 @@ function getVideoMuteButton() {
  *  @returns {Object | undefined}
  */
 function getChatButton() {
-    const _iAmVisitor = useSelector(iAmVisitor);
-
-    if (!_iAmVisitor) {
-        return chat;
-    }
+    return chat;
 }
 
 /**
@@ -122,11 +118,7 @@ function getScreenSharingButton() {
  *  @returns {Object | undefined}
  */
 function getTileViewButton() {
-    const _iAmVisitor = useSelector(iAmVisitor);
-
-    if (!_iAmVisitor) {
-        return tileview;
-    }
+    return tileview;
 }
 
 /**
@@ -135,11 +127,7 @@ function getTileViewButton() {
  *  @returns {Object | undefined}
  */
 function getOverflowMenuButton() {
-    const _iAmVisitor = useSelector(iAmVisitor);
-
-    if (!_iAmVisitor) {
-        return overflowmenu;
-    }
+    return overflowmenu;
 }
 
 /**
@@ -161,7 +149,7 @@ export function useNativeToolboxButtons(
         microphone: audioMuteButton,
         camera: videoMuteButton,
         chat: chatButton,
-        screensharing: screenSharingButton,
+        desktop: screenSharingButton,
         raisehand,
         tileview: tileViewButton,
         overflowmenu: overflowMenuButton,

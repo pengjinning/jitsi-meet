@@ -7,9 +7,14 @@ import emojiAsciiAliases from 'react-emoji-render/data/asciiAliases';
 import { IReduxState } from '../app/types';
 import { getLocalizedDateFormatter } from '../base/i18n/dateUtil';
 import i18next from '../base/i18n/i18next';
+import { MEET_FEATURES } from '../base/jwt/constants';
 import { isJwtFeatureEnabled } from '../base/jwt/functions';
-import { getParticipantById } from '../base/participants/functions';
+import { getParticipantById, isPrivateChatEnabled } from '../base/participants/functions';
+import { IParticipant } from '../base/participants/types';
 import { escapeRegexp } from '../base/util/helpers';
+import { getParticipantsPaneWidth } from '../participants-pane/functions';
+import { VIDEO_SPACE_MIN_SIZE } from '../video-layout/constants';
+import { IVisitorChatParticipant } from '../visitors/types';
 
 import { MESSAGE_TYPE_ERROR, MESSAGE_TYPE_LOCAL, TIMESTAMP_FORMAT } from './constants';
 import { IMessage } from './types';
@@ -127,6 +132,16 @@ export function getUnreadCount(state: IReduxState) {
 }
 
 /**
+ * Gets the unread files count.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {number} The number of unread files.
+ */
+export function getUnreadFilesCount(state: IReduxState): number {
+    return state['features/chat']?.unreadFilesCount || 0;
+}
+
+/**
  * Get whether the chat smileys are disabled or not.
  *
  * @param {IReduxState} state - The redux state.
@@ -175,9 +190,24 @@ export function getCanReplyToMessage(state: IReduxState, message: IMessage) {
     const { knocking } = state['features/lobby'];
     const participant = getParticipantById(state, message.participantId);
 
-    return Boolean(participant)
+    // Check if basic reply conditions are met
+    const basicCanReply = (Boolean(participant) || message.isFromVisitor)
         && (message.privateMessage || (message.lobbyChat && !knocking))
         && message.messageType !== MESSAGE_TYPE_LOCAL;
+
+    if (!basicCanReply) {
+        return false;
+    }
+
+    // Check private chat configuration for visitor messages
+    if (message.isFromVisitor) {
+        const visitorParticipant = { id: message.participantId, name: message.displayName, isVisitor: true as const };
+
+        return isPrivateChatEnabled(visitorParticipant, state);
+    }
+
+    // For non-visitor messages, use the regular participant
+    return isPrivateChatEnabled(participant, state);
 }
 
 /**
@@ -187,8 +217,19 @@ export function getCanReplyToMessage(state: IReduxState, message: IMessage) {
  * @returns {string}
  */
 export function getPrivateNoticeMessage(message: IMessage) {
+    let recipient;
+
+    if (message.messageType === MESSAGE_TYPE_LOCAL) {
+        // For messages sent by local user, show the recipient name
+        // For visitor messages, use the visitor's display name with indicator
+        recipient = message.sentToVisitor ? `${message.recipient} ${i18next.t('visitors.chatIndicator')}` : message.recipient;
+    } else {
+        // For messages received from others, show "you"
+        recipient = i18next.t('chat.you');
+    }
+
     return i18next.t('chat.privateNotice', {
-        recipient: message.messageType === MESSAGE_TYPE_LOCAL ? message.recipient : i18next.t('chat.you')
+        recipient
     });
 }
 
@@ -206,5 +247,59 @@ export function isSendGroupChatDisabled(state: IReduxState) {
         return false;
     }
 
-    return !isJwtFeatureEnabled(state, 'send-groupchat', false, false);
+    return !isJwtFeatureEnabled(state, MEET_FEATURES.SEND_GROUPCHAT, false);
+}
+
+/**
+ * Calculates the maximum width available for the chat panel based on the current window size
+ * and other UI elements.
+ *
+ * @param {IReduxState} state - The Redux state containing the application's current state.
+ * @returns {number} The maximum width in pixels available for the chat panel. Returns 0 if there
+ * is no space available.
+ */
+export function getChatMaxSize(state: IReduxState) {
+    const { clientWidth } = state['features/base/responsive-ui'];
+
+    return Math.max(clientWidth - getParticipantsPaneWidth(state) - VIDEO_SPACE_MIN_SIZE, 0);
+}
+
+/**
+ * Type guard to check if a participant is a visitor chat participant.
+ *
+ * @param {IParticipant | IVisitorChatParticipant | undefined} participant - The participant to check.
+ * @returns {boolean} - True if the participant is a visitor chat participant.
+ */
+export function isVisitorChatParticipant(
+        participant?: IParticipant | IVisitorChatParticipant
+): participant is IVisitorChatParticipant {
+    return Boolean(participant && 'isVisitor' in participant && participant.isVisitor === true);
+}
+
+/**
+ * Returns a suffix to be appended to the display name based on the message origin.
+ *
+ * @param {IMessage} message - The message.
+ * @returns {string} The suffix, if any.
+ */
+export function getDisplayNameSuffix(message: IMessage): string {
+    let suffix = '';
+
+    if (message.isFromVisitor) {
+        suffix = ` ${i18next.t('visitors.chatIndicator')}`;
+    } else if (message.isFromGuest) {
+        suffix = ` ${i18next.t('chat.guestsChatIndicator')}`;
+    }
+
+    return suffix;
+}
+
+/**
+ * Checks if a message is a file message by verifying the presence of file metadata.
+ *
+ * @param {IMessage} message - The message to check.
+ * @returns {boolean} True if the message contains file metadata, false otherwise.
+ */
+export function isFileMessage(message: IMessage): boolean {
+    return Boolean(message?.fileMetadata);
 }

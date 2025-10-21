@@ -13,6 +13,7 @@ local get_room_from_jid = util.get_room_from_jid;
 local get_focus_occupant = util.get_focus_occupant;
 local get_room_by_name_and_subdomain = util.get_room_by_name_and_subdomain;
 local internal_room_jid_match_rewrite = util.internal_room_jid_match_rewrite;
+local table_find = util.table_find;
 local is_vpaas = util.is_vpaas;
 local is_sip_jibri_join = util.is_sip_jibri_join;
 local process_host_module = util.process_host_module;
@@ -21,6 +22,9 @@ local split_string = util.split_string;
 local new_id = require 'util.id'.medium;
 local json = require 'cjson.safe';
 local inspect = require 'inspect';
+
+-- Debug flag
+local DEBUG = false;
 
 -- will be initialized once the main virtual host module is initialized
 local token_util;
@@ -62,6 +66,17 @@ local visitors_promotion_requests = {};
 local cache = require 'util.cache';
 local sent_iq_cache = cache.new(200);
 
+-- Function to get visitors room metadata
+local function get_visitors_room_metadata(room)
+    if not room.jitsiMetadata then
+        room.jitsiMetadata = {};
+    end
+    if not room.jitsiMetadata.visitors then
+        room.jitsiMetadata.visitors = {};
+    end
+    return room.jitsiMetadata.visitors;
+end
+
 -- Sends a json-message to the destination jid
 -- @param to_jid the destination jid
 -- @param json_message the message content to send
@@ -71,13 +86,38 @@ function send_json_message(to_jid, json_message)
     module:send(stanza);
 end
 
-local function request_promotion_received(room, from_jid, from_vnode, nick, time, user_id, force_promote)
+local function request_promotion_received(room, from_jid, from_vnode, nick, time, user_id, group_id, force_promote_requested)
+    if DEBUG then
+         module:log('debug', 'Received promotion request from %s for room %s, nick: %s, time: %s, user_id: %s, group_id: %s, force_promote_requested: %s',
+        from_jid, room.jid, nick, time, user_id, group_id, force_promote_requested);
+    end
+
     -- if visitors is enabled for the room
     if visitors_promotion_map[room.jid] then
+        local force_promote = auto_allow_promotion or get_visitors_room_metadata(room).autoPromote;
+        if not force_promote and force_promote_requested == 'true' then
+            -- Let's do the force_promote checks if requested
+            -- if it is vpaas meeting we trust the moderator computation from visitor node (value of force_promote_requested)
+            -- if it is not vpaas we need to check further settings only if they exist
+            if is_vpaas(room) or (not room._data.moderator_id and not room._data.moderators)
+                -- _data.moderator_id can be used from external modules to set single moderator for a meeting
+                -- or a whole group of moderators
+                or (room._data.moderator_id
+                    and room._data.moderator_id == user_id or room._data.moderator_id == group_id)
+
+                -- all moderators are allowed to auto promote, the fact that user_id and force_promote_requested are set
+                -- means that the user has token and is moderator on visitor node side
+                or room._data.allModerators
+
+                -- can be used by external modules to set multiple moderator ids (table of values)
+                or table_find(room._data.moderators, user_id)
+            then
+                force_promote = true;
+            end
+        end
+
         -- only for raise hand, ignore lowering the hand
-        if time and time > 0 and (
-            auto_allow_promotion
-            or force_promote == 'true') then
+        if time and time > 0 and force_promote then
             --  we are in auto-allow mode, let's reply with accept
             -- we store where the request is coming from so we can send back the response
             local username = new_id():lower();
@@ -173,6 +213,9 @@ end
 local function disconnect_vnode_received(room, vnode)
     module:context(muc_domain_base):fire_event('jitsi-disconnect-vnode', { room = room; vnode = vnode; });
 
+    if not room._connected_vnodes then
+        return;
+    end
     room._connected_vnodes:set(vnode..'.meet.jitsi', nil);
 
     if room._connected_vnodes:count() == 0 then
@@ -210,16 +253,6 @@ function get_visitors_languages(room)
     return count, languages:sort():concat(',');
 end
 
-local function get_visitors_room_metadata(room)
-    if not room.jitsiMetadata then
-        room.jitsiMetadata = {};
-    end
-    if not room.jitsiMetadata.visitors then
-        room.jitsiMetadata.visitors = {};
-    end
-    return room.jitsiMetadata.visitors;
-end
-
 -- listens for iq request for promotion and forward it to moderators in the meeting for approval
 -- or auto-allow it if such the config is set enabling it
 local function stanza_handler(event)
@@ -227,6 +260,10 @@ local function stanza_handler(event)
 
     if stanza.name ~= 'iq' then
         return;
+    end
+
+    if DEBUG then
+        module:log('debug', 'Received stanza %s from %s', stanza, origin.full_jid);
     end
 
     if stanza.attr.type == 'result' and sent_iq_cache:get(stanza.attr.id) then
@@ -280,6 +317,7 @@ local function stanza_handler(event)
             display_name,
             tonumber(request_promotion.attr.time),
             request_promotion.attr.userId,
+            request_promotion.attr.groupId,
             request_promotion.attr.forcePromote
         );
     end
@@ -345,6 +383,11 @@ local function process_promotion_response(room, id, approved)
         return;
     end
 
+    if DEBUG then
+        module:log('debug', 'Processing promotion response for room %s, id %s, approved %s',
+            room.jid, id, approved);
+    end
+
     -- lets reply to participant that requested promotion
     local username = new_id():lower();
     visitors_promotion_map[room.jid][username] = {
@@ -378,13 +421,24 @@ end
 -- if room metadata does not have visitors.live set to `true` and there are no occupants in the meeting
 -- it will skip calling goLive endpoint
 local function go_live(room)
+
+    if DEBUG then
+        module:log('debug', 'Checking if room %s is live', room.jid);
+    end
+
     if room._jitsi_go_live_sent then
+        if DEBUG then
+            module:log('debug', 'Room %s already sent go live request, skipping', room.jid);
+        end
         return;
     end
 
     -- if missing we assume room is live, only skip if it is marked explicitly as false
     if room.jitsiMetadata and room.jitsiMetadata.visitors
             and room.jitsiMetadata.visitors.live ~= nil and room.jitsiMetadata.visitors.live == false then
+        if DEBUG then
+            module:log('debug', 'Room %s is not live, skipping go live request', room.jid);
+        end
         return;
     end
 
@@ -398,6 +452,9 @@ local function go_live(room)
 
     -- when there is an occupant then go live
     if not has_occupant then
+        if DEBUG then
+            module:log('debug', 'Room %s has no occupants, skipping go live request', room.jid);
+        end
         return;
     end
 
@@ -439,6 +496,10 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
         local room, stanza, occupant, session = event.room, event.stanza, event.occupant, event.origin;
 
         if is_healthcheck_room(room.jid) or is_admin(occupant.bare_jid) then
+            if DEBUG then
+                module:log('debug', 'Skipping visitor checks for healthcheck room %s or admin %s',
+                    room.jid, occupant.bare_jid);
+            end
             return;
         end
 
@@ -450,12 +511,21 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
             join:tag('password', { xmlns = MUC_NS }):text(room:get_password());
         end
 
-        -- we skip any checks when auto-allow is enabled
-        if auto_allow_promotion
+        local is_live = get_visitors_room_metadata(room).live;
+
+        -- we skip any checks when auto-allow is enabled and room is live
+        if (auto_allow_promotion or get_visitors_room_metadata(room).autoPromote and (is_live or is_live == nil))
             or ignore_list:contains(jid.host(stanza.attr.from)) -- jibri or other domains to ignore
             or is_sip_jigasi(stanza)
-            or is_sip_jibri_join(stanza) then
-            return;
+            or is_sip_jibri_join(stanza)
+            or table_find(room._data.moderators, session.jitsi_meet_context_user and session.jitsi_meet_context_user.id)
+            or (room._data.moderator_id and room._data.moderator_id == (session.jitsi_meet_context_user and session.jitsi_meet_context_user.id))
+            or (room._data.moderator_id and room._data.moderator_id == session.jitsi_meet_context_group)
+            or table_find(room._data.participants, session.jitsi_meet_context_user and session.jitsi_meet_context_user.id) then
+            if DEBUG then
+                module:log('debug', 'Auto-allowing visitor %s in room %s', stanza.attr.from, room.jid);
+            end
+                return;
         end
 
         if visitors_promotion_map[room.jid] then
@@ -492,6 +562,16 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
                         :tag('no-main-participants', { xmlns = 'jitsi:visitors' }));
                 return true;
             end
+        elseif room._data.participants then
+                -- This is non jaas room which has a list of participants allowed to participate in the main room
+                -- but this occupant is not one of them and the room is either not live or has no participants joined
+                session.log('warn',
+                    'Deny user join in the main not live meeting, not in the list of main participants');
+                session.send(st.error_reply(
+                    stanza, 'cancel', 'not-allowed',
+                    'Tried to join the main (not live or without main participants) room')
+                        :tag('not-live-room', { xmlns = 'jitsi:visitors' }));
+                return true;
         end
 
     end, 7); -- after muc_meeting_id, the logic for not joining before jicofo
@@ -503,8 +583,16 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
     host_module:hook('muc-occupant-joined', function (event)
         local room, occupant = event.room, event.occupant;
 
+        if DEBUG then
+            module:log('debug', 'Occupant %s joined room %s', occupant.jid, room.jid);
+        end
+
         if is_healthcheck_room(room.jid) or is_admin(occupant.bare_jid) or occupant.role ~= 'moderator' -- luacheck: ignore
             or not visitors_promotion_requests[event.room.jid] then
+                if DEBUG then
+                    module:log('debug', 'Skipping visitor checks for healthcheck room %s or admin %s or not moderator %s',
+                        room.jid, occupant.bare_jid, occupant.role);
+                end
             return;
         end
 

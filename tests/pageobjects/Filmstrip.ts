@@ -99,8 +99,8 @@ export default class Filmstrip extends BasePageObject {
             async () => await this.participant.getLargeVideo().getId() === videoIdToSwitchTo,
             {
                 timeout: 3_000,
-                timeoutMsg: `${this.participant.displayName} did not switch the large video to ${
-                    participant.displayName}`
+                timeoutMsg: `${this.participant.name} did not switch the large video to ${
+                    participant.name}`
             }
         );
     }
@@ -120,7 +120,7 @@ export default class Filmstrip extends BasePageObject {
 
         await this.participant.driver.$(`//div[ @id="pin-indicator-${epId}" ]`).waitForDisplayed({
             timeout: 2_000,
-            timeoutMsg: `${this.participant.displayName} did not unpin ${participant.displayName}`,
+            timeoutMsg: `${this.participant.name} did not unpin ${participant.name}`,
             reverse: true
         });
     }
@@ -134,6 +134,20 @@ export default class Filmstrip extends BasePageObject {
             `//span[@id='participant_${endpointId}']//img[contains(@class,'userAvatar')]`);
 
         return await elem.isExisting() ? await elem.getAttribute('src') : null;
+    }
+
+    /**
+     * Returns true if the endpoint is dominant speaker and false otherwise.
+     * Uses the dominant-speaker class on the video thumbnail in order to check.
+     *
+     * @param {string} endpointId - The endpoint id of the participant we want to check.
+     * @returns {boolean} - True if the endpoint is dominant speaker and false otherwise.
+     */
+    async isDominantSpeaker(endpointId: string) {
+        const elem = this.participant.driver.$(
+            `//span[@id='participant_${endpointId}' and contains(@class,'dominant-speaker')]`);
+
+        return await elem.isExisting();
     }
 
     /**

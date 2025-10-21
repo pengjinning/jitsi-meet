@@ -65,6 +65,11 @@ export type IMainToolbarButtonThresholds = Array<{
     width: number;
 }>;
 
+export type IMainToolbarButtonThresholdsUnfiltered = Array<{
+    order: Array<ToolbarButton | NativeToolbarButton | string> | Symbol;
+    width: number;
+}>;
+
 export interface ICustomToolbarButton {
     Content?: ComponentType<any>;
     backgroundColor?: string;
@@ -79,7 +84,7 @@ export type NativeToolbarButton = 'camera' |
     'chat' |
     'microphone' |
     'raisehand' |
-    'screensharing' |
+    'desktop' |
     'tileview' |
     'overflowmenu' |
     'hangup';
@@ -87,6 +92,7 @@ export type NativeToolbarButton = 'camera' |
 export interface IGetVisibleNativeButtonsParams {
     allButtons: { [key: string]: IToolboxNativeButton; };
     clientWidth: number;
+    iAmVisitor: boolean;
     mainToolbarButtonsThresholds: IMainToolbarButtonThresholds;
     toolbarButtons: string[];
 }
